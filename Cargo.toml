@@ -1,0 +1,14 @@
+[package]
+description = "A library to train scenes for `gausplat-renderer`"
+edition.workspace = true
+license-file = "LICENSE"
+name = "gausplat-trainer"
+publish = false
+readme = "README.md"
+version.workspace = true
+
+[dependencies]
+gausplat-importer = {workspace = true}
+gausplat-renderer = {workspace = true}
+
+burn = {workspace = true, features = ["train"]}
