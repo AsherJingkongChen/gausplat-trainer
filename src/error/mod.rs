@@ -2,7 +2,8 @@ use std::{error, fmt};
 
 #[derive(Debug)]
 pub enum Error {
-    InvalidConfig(String),
+    Config(String),
+    RandomNormalDistribution(rand_distr::NormalError),
 }
 
 impl fmt::Display for Error {

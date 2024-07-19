@@ -11,4 +11,6 @@ version.workspace = true
 gausplat-importer = {workspace = true}
 gausplat-renderer = {workspace = true}
 
-burn = {workspace = true, features = ["train"]}
+burn = {workspace = true}
+rand = {workspace = true}
+rand_distr = {workspace = true}

@@ -2,10 +2,13 @@ pub use gausplat_importer::scene::point;
 pub use gausplat_renderer::scene::gaussian_3d::backend;
 
 use crate::error::Error;
-use gausplat_renderer::scene::gaussian_3d::*;
-use spherical_harmonics::SH_C;
+use gausplat_renderer::scene::gaussian_3d::{
+    spherical_harmonics::SH_C, tensor, Gaussian3dScene,
+};
+use rand::{rngs::StdRng, SeedableRng};
+use rand_distr::Distribution;
 use std::fmt;
-use tensor::Data;
+use tensor::{Data, Tensor};
 
 #[derive(Clone, PartialEq)]
 pub struct Gaussian3dSceneConfig<B: backend::Backend> {
@@ -20,7 +23,7 @@ impl<B: backend::Backend> TryFrom<Gaussian3dSceneConfig<B>>
     type Error = Error;
     fn try_from(config: Gaussian3dSceneConfig<B>) -> Result<Self, Self::Error> {
         if config.colors_sh_degree > 4 {
-            return Err(Error::InvalidConfig(
+            return Err(Error::Config(
                 "colors_sh_degree should be no more than 4".into(),
             ));
         }
@@ -66,9 +69,33 @@ impl<B: backend::Backend> TryFrom<Gaussian3dSceneConfig<B>>
         );
 
         let opacities = Tensor::full([point_count, 1], 0.1, &device);
+
         let rotations = Tensor::from_floats([[1.0, 0.0, 0.0, 0.0]], &device)
             .repeat(0, point_count);
-        let scalings = Tensor::empty([point_count, 3], &device);
+
+        let scalings = {
+            let mut sample_max = f32::EPSILON;
+            let samples = rand_distr::LogNormal::new(0.0, std::f32::consts::E)
+                .map_err(Error::RandomNormalDistribution)?
+                .sample_iter(&mut StdRng::seed_from_u64(0x3D65))
+                .take(point_count)
+                .map(|mut sample| {
+                    sample = sample.max(f32::EPSILON);
+                    sample_max = sample_max.max(sample);
+                    sample
+                })
+                .collect();
+
+            let scalings = (Tensor::from_data(
+                Data::new(samples, [point_count, 1].into()).convert(),
+                &device,
+            ) / sample_max)
+                .sqrt()
+                .clamp_min(f32::EPSILON)
+                .repeat(1, 3);
+
+            scalings
+        };
 
         let mut scene = Gaussian3dScene::new();
         scene.set_colors_sh(colors_sh.set_require_grad(true));
