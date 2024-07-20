@@ -48,18 +48,18 @@ impl<B: backend::Backend> TryFrom<Gaussian3dSceneConfig<B>>
                 Data::new(colors_rgb, [point_count, 1, 3].into()).convert(),
                 &device,
             );
-            let mut colors_sh = (colors_rgb - 0.5) / SH_C[0][0];
+
             let colors_sh_count = {
                 let degree_add_1 = config.colors_sh_degree as usize + 1;
                 degree_add_1 * degree_add_1
             };
-            if colors_sh_count > 1 {
-                let colors_sh_others = Tensor::zeros(
-                    [point_count, colors_sh_count - 1, 3],
-                    &device,
-                );
-                colors_sh = Tensor::cat(vec![colors_sh, colors_sh_others], 1);
-            }
+            let mut colors_sh =
+                Tensor::zeros([point_count, colors_sh_count, 3], &device);
+            colors_sh = colors_sh.slice_assign(
+                [0..point_count, 0..1, 0..3],
+                (colors_rgb - 0.5) / SH_C[0][0],
+            );
+
             colors_sh
         };
 
@@ -70,8 +70,14 @@ impl<B: backend::Backend> TryFrom<Gaussian3dSceneConfig<B>>
 
         let opacities = Tensor::full([point_count, 1], 0.1, &device);
 
-        let rotations = Tensor::from_floats([[1.0, 0.0, 0.0, 0.0]], &device)
-            .repeat(0, point_count);
+        let rotations = Tensor::from_data(
+            Data::new(
+                [1.0, 0.0, 0.0, 0.0].repeat(point_count),
+                [point_count, 4].into(),
+            )
+            .convert(),
+            &device,
+        );
 
         let scalings = {
             let mut sample_max = f32::EPSILON;
@@ -115,6 +121,7 @@ impl<B: backend::Backend> fmt::Debug for Gaussian3dSceneConfig<B> {
     ) -> fmt::Result {
         f.debug_struct("Gaussian3dSceneConfig")
             .field("colors_sh_degree", &self.colors_sh_degree)
+            .field("device", &self.device)
             .field("points.len()", &self.points.len())
             .finish()
     }
