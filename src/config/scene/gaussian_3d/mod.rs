@@ -1,4 +1,4 @@
-pub use gausplat_importer::scene::point;
+pub use gausplat_importer::scene::sparse_view::point;
 pub use gausplat_renderer::scene::gaussian_3d::backend;
 
 use crate::error::Error;
@@ -97,7 +97,7 @@ impl<B: backend::Backend> TryFrom<Gaussian3dSceneConfig<B>>
             scalings
         };
 
-        let mut scene = Gaussian3dScene::new();
+        let mut scene = Self::new();
         scene.set_colors_sh(colors_sh.set_require_grad(true));
         scene.set_opacities(opacities.set_require_grad(true));
         scene.set_positions(positions.set_require_grad(true));
