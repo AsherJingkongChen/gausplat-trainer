@@ -21,6 +21,7 @@ impl<B: backend::Backend> TryFrom<Gaussian3dSceneConfig<B>>
     for Gaussian3dScene<B>
 {
     type Error = Error;
+
     fn try_from(config: Gaussian3dSceneConfig<B>) -> Result<Self, Self::Error> {
         if config.colors_sh_degree > 4 {
             return Err(Error::Config(
