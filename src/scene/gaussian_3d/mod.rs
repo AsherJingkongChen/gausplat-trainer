@@ -4,7 +4,7 @@ pub use gausplat_renderer::scene::gaussian_3d::Backend;
 use crate::error::Error;
 use gausplat_renderer::{
     consts::spherical_harmonics::SH_C,
-    scene::gaussian_3d::{Data, Gaussian3dScene, Tensor},
+    scene::gaussian_3d::{Data, Gaussian3dScene, Param, Tensor},
 };
 use rand::{rngs::StdRng, SeedableRng};
 use rand_distr::Distribution;
@@ -34,69 +34,122 @@ impl<B: Backend> TryFrom<Gaussian3dSceneConfig<B>> for Gaussian3dScene<B> {
                 (colors_rgb, positions)
             },
         );
+        let rng = rand_distr::LogNormal::new(0.0, std::f32::consts::E)
+            .map_err(Error::RandomNormalDistribution)?;
 
-        let colors_sh = {
-            let mut colors_sh = Tensor::zeros([point_count, 16, 3], &device);
-            let colors_rgb = Tensor::from_data(
-                Data::new(colors_rgb, [point_count, 1, 3].into()).convert(),
-                &device,
-            );
-            colors_sh = colors_sh.slice_assign(
-                [0..point_count, 0..1, 0..3],
-                (colors_rgb - 0.5) / SH_C[0][0],
-            );
+        // [P, 16, 3]
+        let colors_sh = Param::uninitialized(
+            Default::default(),
+            move |device, is_require_grad| {
+                let mut colors_sh = Tensor::zeros([point_count, 16, 3], device);
+                let colors_rgb = Tensor::from_data(
+                    Data::new(
+                        colors_rgb.to_owned(),
+                        [point_count, 1, 3].into(),
+                    )
+                    .convert(),
+                    device,
+                );
 
-            colors_sh
-        };
+                colors_sh = colors_sh.slice_assign(
+                    [0..point_count, 0..1, 0..3],
+                    (colors_rgb - 0.5) / SH_C[0][0],
+                );
 
-        let positions = Tensor::from_data(
-            Data::new(positions, [point_count, 3].into()).convert(),
-            &device,
+                Self::make_colors_sh(colors_sh)
+                    .set_require_grad(is_require_grad)
+            },
+            device.to_owned(),
+            true,
         );
 
-        let opacities = Tensor::full([point_count, 1], 0.1, &device);
-
-        // [P, 4] (w, x, y, z)
-        let rotations = Tensor::from_data(
-            Data::new(
-                [1.0, 0.0, 0.0, 0.0].repeat(point_count),
-                [point_count, 4].into(),
-            )
-            .convert(),
-            &device,
+        // [P, 1]
+        let opacities = Param::uninitialized(
+            Default::default(),
+            move |device, is_require_grad| {
+                Self::make_opacities(Tensor::full(
+                    [point_count, 1],
+                    0.1,
+                    device,
+                ))
+                .set_require_grad(is_require_grad)
+            },
+            device.to_owned(),
+            true,
         );
 
-        let scalings = {
-            let mut sample_max = f32::EPSILON;
-            let samples = rand_distr::LogNormal::new(0.0, std::f32::consts::E)
-                .map_err(Error::RandomNormalDistribution)?
-                .sample_iter(&mut StdRng::seed_from_u64(0x3D65))
-                .take(point_count)
-                .map(|mut sample| {
-                    sample = sample.max(f32::EPSILON);
-                    sample_max = sample_max.max(sample);
-                    sample
-                })
-                .collect();
+        // [P, 3]
+        let positions = Param::uninitialized(
+            Default::default(),
+            move |device, is_require_grad| {
+                Self::make_positions(Tensor::from_data(
+                    Data::new(positions.to_owned(), [point_count, 3].into())
+                        .convert(),
+                    device,
+                ))
+                .set_require_grad(is_require_grad)
+            },
+            device.to_owned(),
+            true,
+        );
 
-            (Tensor::from_data(
-                Data::new(samples, [point_count, 1].into()).convert(),
-                &device,
-            ) / sample_max)
-                .sqrt()
-                .clamp_min(f32::EPSILON)
-                .repeat(1, 3)
-        };
+        // [P, 4] (x, y, z, w)
+        let rotations = Param::uninitialized(
+            Default::default(),
+            move |device, is_require_grad| {
+                Self::make_rotations(Tensor::from_data(
+                    Data::new(
+                        [0.0, 0.0, 0.0, 1.0].repeat(point_count),
+                        [point_count, 4].into(),
+                    )
+                    .convert(),
+                    device,
+                ))
+                .set_require_grad(is_require_grad)
+            },
+            device.to_owned(),
+            true,
+        );
 
-        let mut scene = Self::default();
-        scene
-            .set_colors_sh(colors_sh.require_grad())
-            .set_opacities(opacities.require_grad())
-            .set_positions(positions.require_grad())
-            .set_rotations(rotations.require_grad())
-            .set_scalings(scalings.require_grad());
+        // [P, 3]
+        let scalings = Param::uninitialized(
+            Default::default(),
+            move |device, is_require_grad| {
+                println!("INIT!!!");
+                let mut sample_max = f32::EPSILON;
+                let samples = rng
+                    .sample_iter(&mut StdRng::seed_from_u64(0x3D65))
+                    .take(point_count)
+                    .map(|mut sample| {
+                        sample = sample.max(f32::EPSILON);
+                        sample_max = sample_max.max(sample);
+                        sample
+                    })
+                    .collect();
 
-        Ok(scene)
+                Self::make_scalings(
+                    Tensor::from_data(
+                        Data::new(samples, [point_count, 1].into()).convert(),
+                        device,
+                    )
+                    .div_scalar(sample_max)
+                    .sqrt()
+                    .clamp_min(f32::EPSILON)
+                    .repeat(1, 3),
+                )
+                .set_require_grad(is_require_grad)
+            },
+            device,
+            true,
+        );
+
+        Ok(Self {
+            colors_sh,
+            opacities,
+            positions,
+            rotations,
+            scalings,
+        })
     }
 }
 

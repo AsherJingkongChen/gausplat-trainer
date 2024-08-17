@@ -112,10 +112,12 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
         );
         // s0^2 = F(x0^2) - m0^2
         let std2 = (
-            filter.forward(inputs.0.to_owned() * inputs.0.to_owned())
-                - means2.0.to_owned(),
-            filter.forward(inputs.1.to_owned() * inputs.1.to_owned())
-                - means2.1.to_owned(),
+            filter
+                .forward(inputs.0.to_owned() * inputs.0.to_owned())
+                .mul(means2.0.to_owned()),
+            filter
+                .forward(inputs.1.to_owned() * inputs.1.to_owned())
+                .mul(means2.1.to_owned()),
         );
         // m_01 = m0 * m1
         let mean_0_1 = means.0 * means.1;
@@ -124,8 +126,9 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
         // I(x0, x1) =
         // (2 * m_01 + C1) * (2 * s_01 + C2) /
         // ((m0^2 + m1^2 + C1) * (s0^2 + s1^2 + C2))
-        let indexes = (mean_0_1 + C1 / 2.0) * (std_0_1 + C2 / 2.0) * (2.0 * 2.0)
-            / ((means2.0 + means2.1 + C1) * (std2.0 + std2.1 + C2));
+        let indexes =
+            (mean_0_1 + C1 / 2.0) * (std_0_1 + C2 / 2.0) * (2.0 * 2.0)
+                / ((means2.0 + means2.1 + C1) * (std2.0 + std2.1 + C2));
         // MI(x0, x1) = mean(I(x0, x1))
         let index = indexes.mean();
 
@@ -146,7 +149,8 @@ mod tests {
         use super::*;
 
         let device = Default::default();
-        let metric = MeanStructuralSimilarity::<burn::backend::NdArray, 3>::new(&device);
+        let metric =
+            MeanStructuralSimilarity::<burn::backend::NdArray, 3>::new(&device);
 
         let input_0 = Tensor::zeros([1, 3, 256, 256], &device);
         let input_1 = Tensor::zeros([1, 3, 256, 256], &device);
