@@ -14,3 +14,4 @@ gausplat-renderer = {workspace = true}
 burn = {workspace = true}
 rand = {workspace = true}
 rand_distr = {workspace = true}
+rayon = {workspace = true}

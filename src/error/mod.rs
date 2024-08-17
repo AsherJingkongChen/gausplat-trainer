@@ -2,7 +2,6 @@ use std::{error, fmt};
 
 #[derive(Debug)]
 pub enum Error {
-    Config(String),
     RandomNormalDistribution(rand_distr::NormalError),
 }
 
