@@ -134,7 +134,7 @@ mod tests {
             Gaussian3dSceneConfig::<burn::backend::NdArray> { device, points };
 
         let scene = Gaussian3dScene::try_from(config);
-        assert!(scene.is_ok(), "{:?}", scene.unwrap_err());
+        assert!(scene.is_ok(), "{}", scene.unwrap_err());
 
         let scene = scene.unwrap();
 
