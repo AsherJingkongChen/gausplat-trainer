@@ -1,5 +1,5 @@
 [package]
-description = "A library to train scenes for `gausplat-renderer`"
+description = "A library to train scenes for `gausplat`"
 edition.workspace = true
 license-file = "LICENSE"
 name = "gausplat-trainer"

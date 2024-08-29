@@ -4,7 +4,6 @@ pub use burn::{
 };
 
 use burn::{
-    module::Param,
     nn::{self, conv},
     tensor::Int,
 };
@@ -41,7 +40,7 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
             .init(device);
 
         // [C, 1, 11, 11]
-        filter.weight = {
+        filter.weight = filter.weight.map(|_| {
             let size_half = WEIGHT_SIZE_HALF as i64;
             // 2s^2
             let s2_2 = WEIGHT_STD2_2;
@@ -60,11 +59,8 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
             let w_normalized = w.to_owned().div(w.sum().unsqueeze::<2>());
 
             // w'[C, 1, 11, 11]
-            Param::initialized(
-                Default::default(),
-                w_normalized.expand([C, C / C, WEIGHT_SIZE, WEIGHT_SIZE]),
-            )
-        };
+            w_normalized.expand([C, C / C, WEIGHT_SIZE, WEIGHT_SIZE])
+        });
 
         Self { filter }
     }
@@ -114,21 +110,20 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
         let std2 = (
             filter
                 .forward(inputs.0.to_owned() * inputs.0.to_owned())
-                .mul(means2.0.to_owned()),
+                .sub(means2.0.to_owned()),
             filter
                 .forward(inputs.1.to_owned() * inputs.1.to_owned())
-                .mul(means2.1.to_owned()),
+                .sub(means2.1.to_owned()),
         );
         // m_01 = m0 * m1
-        let mean_0_1 = means.0 * means.1;
+        let mean_01 = means.0 * means.1;
         // s_01 = F(x0 * x1) - m_01
-        let std_0_1 = filter.forward(inputs.0 * inputs.1) - mean_0_1.to_owned();
+        let std_01 = filter.forward(inputs.0 * inputs.1) - mean_01.to_owned();
         // I(x0, x1) =
         // (2 * m_01 + C1) * (2 * s_01 + C2) /
         // ((m0^2 + m1^2 + C1) * (s0^2 + s1^2 + C2))
-        let indexes =
-            (mean_0_1 + C1 / 2.0) * (std_0_1 + C2 / 2.0) * (2.0 * 2.0)
-                / ((means2.0 + means2.1 + C1) * (std2.0 + std2.1 + C2));
+        let indexes = (mean_01 + C1 / 2.0) * (std_01 + C2 / 2.0) * (2.0 * 2.0)
+            / ((means2.0 + means2.1 + C1) * (std2.0 + std2.1 + C2));
         // MI(x0, x1) = mean(I(x0, x1))
         let index = indexes.mean();
 

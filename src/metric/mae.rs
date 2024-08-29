@@ -7,7 +7,7 @@ pub use burn::{
 ///
 /// `mean(|input_0 - input_1|)`
 ///
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct MeanAbsoluteError;
 
 impl MeanAbsoluteError {

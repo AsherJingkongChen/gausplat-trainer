@@ -1,3 +1,3 @@
 # gausplat-trainer
 
-> A library to train scenes for `gausplat-renderer`
+> A library to train scenes for `gausplat`
