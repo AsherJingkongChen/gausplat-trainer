@@ -8,7 +8,7 @@ use burn::{
     tensor::Int,
 };
 
-/// Computing the mean of structural similarity index (MSSIM)
+/// Computing the mean of structural similarity index (MSSIM) between the inputs
 /// using the approaches described in the paper:
 ///
 /// *Wang, J., Bovik, A. C., Sheikh, H. R., & Simoncelli, E. P. (2004). Image quality assessment: from error visibility to structural similarity. IEEE Transactions on Image Processing, 13(4), 600–612.*
@@ -65,17 +65,17 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
         Self { filter }
     }
 
-    /// Computing the mean of structural similarity index (MSSIM)
-    /// using the equations 13-16 in the paper:
+    /// Computing the mean of structural similarity index (MSSIM) between the inputs
+    /// using the equations 13-16 and settings in the paper:
     ///
     /// *Wang, J., Bovik, A. C., Sheikh, H. R., & Simoncelli, E. P. (2004). Image quality assessment: from error visibility to structural similarity. IEEE Transactions on Image Processing, 13(4), 600–612.*
     /// https://www.cns.nyu.edu/pub/lcv/wang03-preprint.pdf
     ///
     /// ## Details
     ///
-    /// - `inputs`: `([n, C, h, w], [n, C, h, w])`
+    /// - `(input_0, input_1)`: `([n, C, h, w], [n, C, h, w])`
     ///   - The values are expected to fall within the range of `0.0` to `1.0`
-    /// - Returns: `[1]`
+    /// - Return: `[1]`
     ///
     pub fn forward(
         &self,
@@ -88,42 +88,43 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
         const C1: f64 = (K1 * L) * (K1 * L);
         const C2: f64 = (K2 * L) * (K2 * L);
 
-        debug_assert_eq!(input_0.dims()[1], C, "input_0.dims()[1] != C");
-        debug_assert_eq!(input_1.dims()[1], C, "input_1.dims()[1] != C");
+        debug_assert_eq!(input_0.dims(), input_1.dims());
+        debug_assert_eq!(input_0.dims()[1], C);
+        debug_assert_eq!(input_1.dims()[1], C);
 
-        let inputs = (input_0, input_1);
+        let input = (input_0, input_1);
         // F(x) = sum(weight * x)
         let filter = &self.filter;
         // m0 = F(x0)
         // m1 = F(x1)
-        let means = (
-            filter.forward(inputs.0.to_owned()),
-            filter.forward(inputs.1.to_owned()),
+        let mean = (
+            filter.forward(input.0.to_owned()),
+            filter.forward(input.1.to_owned()),
         );
         // m0^2 = m0 * m0
         // m1^2 = m1 * m1
-        let means2 = (
-            means.0.to_owned() * means.0.to_owned(),
-            means.1.to_owned() * means.1.to_owned(),
+        let mean2 = (
+            mean.0.to_owned() * mean.0.to_owned(),
+            mean.1.to_owned() * mean.1.to_owned(),
         );
         // s0^2 = F(x0^2) - m0^2
         let std2 = (
             filter
-                .forward(inputs.0.to_owned() * inputs.0.to_owned())
-                .sub(means2.0.to_owned()),
+                .forward(input.0.to_owned() * input.0.to_owned())
+                .sub(mean2.0.to_owned()),
             filter
-                .forward(inputs.1.to_owned() * inputs.1.to_owned())
-                .sub(means2.1.to_owned()),
+                .forward(input.1.to_owned() * input.1.to_owned())
+                .sub(mean2.1.to_owned()),
         );
         // m_01 = m0 * m1
-        let mean_01 = means.0 * means.1;
+        let mean_01 = mean.0 * mean.1;
         // s_01 = F(x0 * x1) - m_01
-        let std_01 = filter.forward(inputs.0 * inputs.1) - mean_01.to_owned();
+        let std_01 = filter.forward(input.0 * input.1) - mean_01.to_owned();
         // I(x0, x1) =
         // (2 * m_01 + C1) * (2 * s_01 + C2) /
         // ((m0^2 + m1^2 + C1) * (s0^2 + s1^2 + C2))
         let indexes = (mean_01 + C1 / 2.0) * (std_01 + C2 / 2.0) * (2.0 * 2.0)
-            / ((means2.0 + means2.1 + C1) * (std2.0 + std2.1 + C2));
+            / ((mean2.0 + mean2.1 + C1) * (std2.0 + std2.1 + C2));
         // MI(x0, x1) = mean(I(x0, x1))
         let index = indexes.mean();
 
@@ -149,17 +150,18 @@ mod tests {
 
         let input_0 = Tensor::zeros([1, 3, 256, 256], &device);
         let input_1 = Tensor::zeros([1, 3, 256, 256], &device);
-        let score = metric.forward(input_0, input_1);
-        assert_eq!(score.into_scalar(), 1.0);
+        let score = metric.forward(input_0, input_1).into_scalar();
+        assert_eq!(score, 1.0);
 
         let input_0 = Tensor::ones([1, 3, 256, 256], &device);
         let input_1 = Tensor::ones([1, 3, 256, 256], &device);
-        let score = metric.forward(input_0, input_1);
-        assert_eq!(score.into_scalar(), 1.0);
+        let score = metric.forward(input_0, input_1).into_scalar();
+        assert_eq!(score, 1.0);
 
         let input_0 = Tensor::zeros([1, 3, 256, 256], &device);
         let input_1 = Tensor::ones([1, 3, 256, 256], &device);
-        let score = metric.forward(input_0, input_1);
-        assert!(score.into_scalar() < 1e-4);
+        let score = metric.forward(input_0, input_1).into_scalar();
+        assert!(score < 1e-4);
+        assert_ne!(score, 0.0);
     }
 }
