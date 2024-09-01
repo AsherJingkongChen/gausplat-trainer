@@ -2,6 +2,7 @@ pub use super::*;
 pub use burn::{config::Config, LearningRate as UpdatingRate};
 
 use burn::optim::AdamConfig;
+use std::ops::Div;
 
 #[derive(Config, Copy, Debug)]
 pub struct Gaussian3dUpdaterConfig {
@@ -41,6 +42,7 @@ impl Gaussian3dUpdaterConfig {
             opacities_updating_rate: self.opacities_updating_rate,
             positions_updating_rate: self.positions_updating_rate_start,
             positions_updating_rate_decay,
+            positions_updating_rate_end: self.positions_updating_rate_end,
             rotations_updating_rate: self.rotations_updating_rate,
             scalings_updating_rate: self.scalings_updating_rate,
             param_updater_2d: updater.init(),
@@ -54,8 +56,6 @@ impl Gaussian3dUpdaterConfig {
         updating_rate_start: UpdatingRate,
         updating_rate_end: UpdatingRate,
     ) -> UpdatingRate {
-        use std::ops::Div;
-
         updating_rate_end
             .div(updating_rate_start)
             .powf((updating_count as UpdatingRate).recip())

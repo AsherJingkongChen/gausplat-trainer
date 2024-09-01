@@ -12,7 +12,7 @@ use burn::{
     optim::{adaptor::OptimizerAdaptor, Adam},
     tensor::Tensor,
 };
-use std::fmt;
+use std::{fmt, ops::Mul};
 
 pub type AdamParamUpdater<AB, const D: usize> = OptimizerAdaptor<
     Adam<<AB as AutodiffBackend>::InnerBackend>,
@@ -28,6 +28,7 @@ pub struct Gaussian3dUpdater<AB: AutodiffBackend> {
     pub opacities_updating_rate: UpdatingRate,
     pub positions_updating_rate: UpdatingRate,
     pub positions_updating_rate_decay: UpdatingRate,
+    pub positions_updating_rate_end: UpdatingRate,
     pub rotations_updating_rate: UpdatingRate,
     pub scalings_updating_rate: UpdatingRate,
     pub param_updater_2d: AdamParamUpdater<AB, 2>,
@@ -119,7 +120,10 @@ impl<AB: AutodiffBackend> Optimizer<Gaussian3dScene<AB>, AB>
 
         // Update the learning rates
 
-        self.positions_updating_rate *= self.positions_updating_rate_decay;
+        self.positions_updating_rate = self
+            .positions_updating_rate
+            .mul(self.positions_updating_rate_decay)
+            .max(self.positions_updating_rate_end);
 
         module
     }
@@ -154,6 +158,10 @@ impl<AB: AutodiffBackend> fmt::Debug for Gaussian3dUpdater<AB> {
             .field(
                 "positions_updating_rate_decay",
                 &self.positions_updating_rate_decay,
+            )
+            .field(
+                "positions_updating_rate_end",
+                &self.positions_updating_rate_end,
             )
             .field("rotations_updating_rate", &self.rotations_updating_rate)
             .field("scalings_updating_rate", &self.scalings_updating_rate)
