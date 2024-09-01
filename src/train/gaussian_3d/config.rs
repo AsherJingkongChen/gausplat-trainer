@@ -23,8 +23,11 @@ pub struct Gaussian3dTrainerConfig {
     #[config(default = "1.6e-6")]
     pub positions_learning_rate_end: LearningRate,
 
+    #[config(default = "RenderOptions::default()")]
+    pub render_options: RenderOptions,
+
     #[config(default = "SEED")]
-    pub rng_seed: u64,
+    pub random_generator_seed: u64,
 
     #[config(default = "1e-3")]
     pub rotations_learning_rate: LearningRate,
@@ -44,6 +47,7 @@ impl Gaussian3dTrainerConfig {
             cameras: dataset.cameras.into_iter().collect(),
             colors_sh_learning_rate: self.colors_sh_learning_rate,
             iteration: 0,
+            metric_optimization: Default::default(),
             opacities_learning_rate: self.opacities_learning_rate,
             param_optimizer_2d: param_optimizer.init(),
             param_optimizer_3d: param_optimizer.init(),
@@ -54,7 +58,8 @@ impl Gaussian3dTrainerConfig {
                 self.positions_learning_rate_end,
             ),
             positions_learning_rate_end: self.positions_learning_rate_end,
-            rng: StdRng::seed_from_u64(self.rng_seed),
+            random_generator: StdRng::seed_from_u64(self.random_generator_seed),
+            render_options: self.render_options,
             rotations_learning_rate: self.rotations_learning_rate,
             scalings_learning_rate: self.scalings_learning_rate,
             scene: Gaussian3dScene::init(device, dataset.points),
