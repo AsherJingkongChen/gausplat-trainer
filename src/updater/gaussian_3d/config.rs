@@ -37,16 +37,13 @@ impl Gaussian3dUpdaterConfig {
         );
 
         Gaussian3dUpdater {
-            colors_sh_updater: updater.init(),
+            param_updater_2d: updater.init(),
+            param_updater_3d: updater.init(),
             colors_sh_updating_rate: self.colors_sh_updating_rate,
-            opacities_updater: updater.init(),
             opacities_updating_rate: self.opacities_updating_rate,
-            positions_updater: updater.init(),
             positions_updating_rate: self.positions_updating_rate_start,
             positions_updating_rate_decay,
-            rotations_updater: updater.init(),
             rotations_updating_rate: self.rotations_updating_rate,
-            scalings_updater: updater.init(),
             scalings_updating_rate: self.scalings_updating_rate,
         }
     }

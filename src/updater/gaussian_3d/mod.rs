@@ -1,12 +1,15 @@
 pub mod config;
 
-pub use burn::{optim::GradientsParams, tensor::backend::AutodiffBackend};
+pub use burn::{
+    optim::{GradientsParams, Optimizer},
+    tensor::backend::AutodiffBackend,
+};
 pub use config::*;
 pub use gausplat_renderer::scene::gaussian_3d::Gaussian3dScene;
 
 use burn::{
     module::Param,
-    optim::{adaptor::OptimizerAdaptor, Adam, Optimizer},
+    optim::{adaptor::OptimizerAdaptor, Adam},
     tensor::Tensor,
 };
 use std::fmt;
@@ -16,70 +19,32 @@ pub type AdamParamUpdater<AB, const D: usize> = OptimizerAdaptor<
     Param<Tensor<AB, D>>,
     AB,
 >;
+pub type AdamParamUpdaterRecord<AB, const D: usize> =
+    <AdamParamUpdater<AB, D> as Optimizer<Param<Tensor<AB, D>>, AB>>::Record;
 
 #[derive(Clone)]
 pub struct Gaussian3dUpdater<AB: AutodiffBackend> {
-    colors_sh_updater: AdamParamUpdater<AB, 3>,
+    param_updater_2d: AdamParamUpdater<AB, 2>,
+    param_updater_3d: AdamParamUpdater<AB, 3>,
     colors_sh_updating_rate: UpdatingRate,
-    opacities_updater: AdamParamUpdater<AB, 2>,
     opacities_updating_rate: UpdatingRate,
-    positions_updater: AdamParamUpdater<AB, 2>,
     positions_updating_rate: UpdatingRate,
     positions_updating_rate_decay: UpdatingRate,
-    rotations_updater: AdamParamUpdater<AB, 2>,
     rotations_updating_rate: UpdatingRate,
-    scalings_updater: AdamParamUpdater<AB, 2>,
     scalings_updating_rate: UpdatingRate,
 }
 
 impl<AB: AutodiffBackend> Gaussian3dUpdater<AB> {
-    pub fn step(
+    pub fn update(
         &mut self,
-        mut module: Gaussian3dScene<AB>,
-        mut grads: GradientsParams,
+        module: Gaussian3dScene<AB>,
+        grads: GradientsParams,
     ) -> Gaussian3dScene<AB> {
-        // Update the parameters
-
-        module.colors_sh = Self::step_param(
-            &mut self.colors_sh_updater,
-            self.colors_sh_updating_rate,
-            module.colors_sh,
-            &mut grads,
-        );
-        module.opacities = Self::step_param(
-            &mut self.opacities_updater,
-            self.opacities_updating_rate,
-            module.opacities,
-            &mut grads,
-        );
-        module.positions = Self::step_param(
-            &mut self.positions_updater,
-            self.positions_updating_rate,
-            module.positions,
-            &mut grads,
-        );
-        module.rotations = Self::step_param(
-            &mut self.rotations_updater,
-            self.rotations_updating_rate,
-            module.rotations,
-            &mut grads,
-        );
-        module.scalings = Self::step_param(
-            &mut self.scalings_updater,
-            self.scalings_updating_rate,
-            module.scalings,
-            &mut grads,
-        );
-
-        // Update the learning rates
-
-        self.positions_updating_rate *= self.positions_updating_rate_decay;
-
-        module
+        self.step(0.0.into(), module, grads)
     }
 
-    fn step_param<O: Optimizer<Param<Tensor<AB, D>>, AB>, const D: usize>(
-        optimizer: &mut O,
+    fn step_param<const D: usize>(
+        optimizer: &mut impl Optimizer<Param<Tensor<AB, D>>, AB>,
         updating_rate: UpdatingRate,
         mut param: Param<Tensor<AB, D>>,
         grads: &mut GradientsParams,
@@ -91,6 +56,88 @@ impl<AB: AutodiffBackend> Gaussian3dUpdater<AB> {
             param = optimizer.step(updating_rate, param, grads);
         }
         param
+    }
+}
+
+impl<AB: AutodiffBackend> Optimizer<Gaussian3dScene<AB>, AB>
+    for Gaussian3dUpdater<AB>
+{
+    type Record =
+        (AdamParamUpdaterRecord<AB, 2>, AdamParamUpdaterRecord<AB, 3>);
+
+    fn step(
+        &mut self,
+        _: UpdatingRate,
+        mut module: Gaussian3dScene<AB>,
+        mut grads: GradientsParams,
+    ) -> Gaussian3dScene<AB> {
+        // Update the parameters
+
+        module.colors_sh = Self::step_param(
+            &mut self.param_updater_3d,
+            self.colors_sh_updating_rate,
+            module.colors_sh,
+            &mut grads,
+        );
+        module.opacities = Self::step_param(
+            &mut self.param_updater_2d,
+            self.opacities_updating_rate,
+            module.opacities,
+            &mut grads,
+        );
+        module.positions = Self::step_param(
+            &mut self.param_updater_2d,
+            self.positions_updating_rate,
+            module.positions,
+            &mut grads,
+        );
+        module.rotations = Self::step_param(
+            &mut self.param_updater_2d,
+            self.rotations_updating_rate,
+            module.rotations,
+            &mut grads,
+        );
+        module.scalings = Self::step_param(
+            &mut self.param_updater_2d,
+            self.scalings_updating_rate,
+            module.scalings,
+            &mut grads,
+        );
+
+        #[cfg(debug_assertions)]
+        {
+            let record = self.to_record();
+            let record_keys = (
+                record.0.keys().collect::<Vec<_>>(),
+                record.1.keys().collect::<Vec<_>>(),
+            );
+            log::debug!(
+                target: "gausplat_trainer::updater",
+                "Gaussian3dUpdater::step > record.keys {record_keys:#?}",
+            );
+        }
+
+        // Update the learning rates
+
+        self.positions_updating_rate *= self.positions_updating_rate_decay;
+
+        module
+    }
+
+    fn to_record(&self) -> Self::Record {
+        (
+            self.param_updater_2d.to_record(),
+            self.param_updater_3d.to_record(),
+        )
+    }
+
+    fn load_record(
+        mut self,
+        record: Self::Record,
+    ) -> Self {
+        self.param_updater_2d = self.param_updater_2d.load_record(record.0);
+        self.param_updater_3d = self.param_updater_3d.load_record(record.1);
+        self
     }
 }
 

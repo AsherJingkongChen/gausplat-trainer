@@ -12,5 +12,6 @@ gausplat-importer = {workspace = true}
 gausplat-renderer = {workspace = true}
 
 burn = {workspace = true}
+log = {workspace = true}
 rayon = {workspace = true}
 thiserror = {workspace = true}
