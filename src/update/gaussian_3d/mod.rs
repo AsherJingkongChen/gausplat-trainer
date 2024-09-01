@@ -24,14 +24,14 @@ pub type AdamParamUpdaterRecord<AB, const D: usize> =
 
 #[derive(Clone)]
 pub struct Gaussian3dUpdater<AB: AutodiffBackend> {
+    pub colors_sh_updating_rate: UpdatingRate,
+    pub opacities_updating_rate: UpdatingRate,
+    pub positions_updating_rate: UpdatingRate,
+    pub positions_updating_rate_decay: UpdatingRate,
+    pub rotations_updating_rate: UpdatingRate,
+    pub scalings_updating_rate: UpdatingRate,
     param_updater_2d: AdamParamUpdater<AB, 2>,
     param_updater_3d: AdamParamUpdater<AB, 3>,
-    colors_sh_updating_rate: UpdatingRate,
-    opacities_updating_rate: UpdatingRate,
-    positions_updating_rate: UpdatingRate,
-    positions_updating_rate_decay: UpdatingRate,
-    rotations_updating_rate: UpdatingRate,
-    scalings_updating_rate: UpdatingRate,
 }
 
 impl<AB: AutodiffBackend> Gaussian3dUpdater<AB> {
