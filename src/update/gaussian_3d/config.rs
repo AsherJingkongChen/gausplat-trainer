@@ -5,14 +5,14 @@ use burn::optim::AdamConfig;
 
 #[derive(Config, Copy, Debug)]
 pub struct Gaussian3dUpdaterConfig {
-    #[config(default = "7000")]
-    pub iteration_count: u64,
-
     #[config(default = "2.5e-3")]
     pub colors_sh_updating_rate: UpdatingRate,
 
     #[config(default = "2.5e-2")]
     pub opacities_updating_rate: UpdatingRate,
+
+    #[config(default = "30000")]
+    pub positions_updating_count: u64,
 
     #[config(default = "1.6e-4")]
     pub positions_updating_rate_start: UpdatingRate,
@@ -31,9 +31,9 @@ impl Gaussian3dUpdaterConfig {
     pub fn init<AB: AutodiffBackend>(&self) -> Gaussian3dUpdater<AB> {
         let updater = AdamConfig::new().with_epsilon(1e-15);
         let positions_updating_rate_decay = Self::updating_rate_decay(
+            self.positions_updating_count,
             self.positions_updating_rate_start,
             self.positions_updating_rate_end,
-            self.iteration_count,
         );
 
         Gaussian3dUpdater {
@@ -50,15 +50,15 @@ impl Gaussian3dUpdaterConfig {
 
     #[inline]
     fn updating_rate_decay(
+        updating_count: u64,
         updating_rate_start: UpdatingRate,
         updating_rate_end: UpdatingRate,
-        iteration_count: u64,
     ) -> UpdatingRate {
         use std::ops::Div;
 
         updating_rate_end
             .div(updating_rate_start)
-            .powf((iteration_count as UpdatingRate).recip())
+            .powf((updating_count as UpdatingRate).recip())
     }
 }
 
@@ -74,21 +74,21 @@ mod tests {
     fn updating_rate_decay() {
         use super::*;
 
-        let config =
-            Gaussian3dUpdaterConfig::default().with_iteration_count(7000);
+        let config = Gaussian3dUpdaterConfig::default()
+            .with_positions_updating_count(7000);
         let decay = Gaussian3dUpdaterConfig::updating_rate_decay(
+            config.positions_updating_count,
             config.positions_updating_rate_start,
             config.positions_updating_rate_end,
-            config.iteration_count,
         );
         assert_eq!(decay, 0.9993423349014151);
 
-        let config =
-            Gaussian3dUpdaterConfig::default().with_iteration_count(30000);
+        let config = Gaussian3dUpdaterConfig::default()
+            .with_positions_updating_count(30000);
         let decay = Gaussian3dUpdaterConfig::updating_rate_decay(
+            config.positions_updating_count,
             config.positions_updating_rate_start,
             config.positions_updating_rate_end,
-            config.iteration_count,
         );
         assert_eq!(decay, 0.9998465061085267);
     }

@@ -30,8 +30,8 @@ pub struct Gaussian3dUpdater<AB: AutodiffBackend> {
     pub positions_updating_rate_decay: UpdatingRate,
     pub rotations_updating_rate: UpdatingRate,
     pub scalings_updating_rate: UpdatingRate,
-    param_updater_2d: AdamParamUpdater<AB, 2>,
-    param_updater_3d: AdamParamUpdater<AB, 3>,
+    pub param_updater_2d: AdamParamUpdater<AB, 2>,
+    pub param_updater_3d: AdamParamUpdater<AB, 3>,
 }
 
 impl<AB: AutodiffBackend> Gaussian3dUpdater<AB> {
