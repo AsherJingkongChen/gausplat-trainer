@@ -11,7 +11,10 @@ version.workspace = true
 gausplat-importer = {workspace = true}
 gausplat-renderer = {workspace = true}
 
-burn = {workspace = true}
+burn = {workspace = true, features = ["autodiff", "default"]}
+indexmap = {workspace = true}
 log = {workspace = true}
 rayon = {workspace = true}
+rand = {workspace = true}
+rand_distr = {workspace = true}
 thiserror = {workspace = true}
