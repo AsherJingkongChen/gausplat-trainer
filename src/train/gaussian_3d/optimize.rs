@@ -14,41 +14,42 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         self.scene.colors_sh = Self::optimize_param(
             &mut self.param_optimizer_3d,
-            self.colors_sh_learning_rate,
+            self.config.colors_sh_learning_rate,
             scene.colors_sh,
             &mut grads,
         );
         self.scene.opacities = Self::optimize_param(
             &mut self.param_optimizer_2d,
-            self.opacities_learning_rate,
+            self.config.opacities_learning_rate,
             scene.opacities,
             &mut grads,
         );
         self.scene.positions = Self::optimize_param(
             &mut self.param_optimizer_2d,
-            self.positions_learning_rate,
+            self.config.positions_learning_rate,
             scene.positions,
             &mut grads,
         );
         self.scene.rotations = Self::optimize_param(
             &mut self.param_optimizer_2d,
-            self.rotations_learning_rate,
+            self.config.rotations_learning_rate,
             scene.rotations,
             &mut grads,
         );
         self.scene.scalings = Self::optimize_param(
             &mut self.param_optimizer_2d,
-            self.scalings_learning_rate,
+            self.config.scalings_learning_rate,
             scene.scalings,
             &mut grads,
         );
 
         // Scheduling the learning rates
 
-        self.positions_learning_rate = self
+        self.config.positions_learning_rate = self
+            .config
             .positions_learning_rate
             .mul(self.positions_learning_rate_decay)
-            .max(self.positions_learning_rate_end);
+            .max(self.config.positions_learning_rate_end);
 
         self
     }

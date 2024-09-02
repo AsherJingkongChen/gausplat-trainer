@@ -1,5 +1,6 @@
 pub mod config;
 pub mod optimize;
+pub mod refine;
 
 pub use crate::metric::MeanAbsoluteError;
 pub use burn::{tensor::backend::AutodiffBackend, LearningRate};
@@ -10,6 +11,7 @@ pub use gausplat_renderer::scene::gaussian_3d::{
     Gaussian3dRenderer, Gaussian3dScene,
 };
 pub use optimize::*;
+pub use refine::*;
 
 use burn::{
     module::Param,
@@ -27,17 +29,11 @@ pub type AdamParamOptimizer<AB, const D: usize> = OptimizerAdaptor<
 
 #[derive(Clone)]
 pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
-    pub colors_sh_learning_rate: LearningRate,
+    pub config: Gaussian3dTrainerConfig,
     pub metric_optimization: MeanAbsoluteError,
-    pub opacities_learning_rate: LearningRate,
     pub param_optimizer_2d: AdamParamOptimizer<AB, 2>,
     pub param_optimizer_3d: AdamParamOptimizer<AB, 3>,
-    pub positions_learning_rate: LearningRate,
     pub positions_learning_rate_decay: LearningRate,
-    pub positions_learning_rate_end: LearningRate,
-    pub render_options: Gaussian3dRendererOptions,
-    pub rotations_learning_rate: LearningRate,
-    pub scalings_learning_rate: LearningRate,
     pub scene: Gaussian3dScene<AB>,
 }
 
@@ -52,7 +48,7 @@ where
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train");
 
-        let output = self.scene.render(&camera.view, &self.render_options);
+        let output = self.scene.render(&camera.view, &self.config.render_options);
         let colors_rgb_2d_output = output.colors_rgb_2d;
 
         #[cfg(debug_assertions)]
@@ -90,6 +86,11 @@ where
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > optimize");
 
+        self.refine();
+
+        #[cfg(debug_assertions)]
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > refine");
+
         self
     }
 }
@@ -100,23 +101,14 @@ impl<AB: AutodiffBackend> fmt::Debug for Gaussian3dTrainer<AB> {
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
         f.debug_struct("Gaussian3dTrainer")
-            .field("colors_sh_learning_rate", &self.colors_sh_learning_rate)
+            .field("config", &self.config)
             .field("metric_optimization", &self.metric_optimization)
-            .field("opacities_learning_rate", &self.opacities_learning_rate)
             .field("param_optimizer_2d", &format!("Adam<{}>", AB::name()))
             .field("param_optimizer_3d", &format!("Adam<{}>", AB::name()))
-            .field("positions_learning_rate", &self.positions_learning_rate)
             .field(
                 "positions_learning_rate_decay",
                 &self.positions_learning_rate_decay,
             )
-            .field(
-                "positions_learning_rate_end",
-                &self.positions_learning_rate_end,
-            )
-            .field("render_options", &self.render_options)
-            .field("rotations_learning_rate", &self.rotations_learning_rate)
-            .field("scalings_learning_rate", &self.scalings_learning_rate)
             .field("scene", &self.scene)
             .finish()
     }

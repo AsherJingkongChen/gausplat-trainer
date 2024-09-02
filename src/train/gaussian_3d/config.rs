@@ -17,7 +17,7 @@ pub struct Gaussian3dTrainerConfig {
     pub positions_learning_count: u64,
 
     #[config(default = "1.6e-4")]
-    pub positions_learning_rate_start: LearningRate,
+    pub positions_learning_rate: LearningRate,
 
     #[config(default = "1.6e-6")]
     pub positions_learning_rate_end: LearningRate,
@@ -40,21 +40,15 @@ impl Gaussian3dTrainerConfig {
     ) -> Gaussian3dTrainer<AB> {
         let param_optimizer = AdamConfig::new().with_epsilon(1e-15);
         Gaussian3dTrainer {
-            colors_sh_learning_rate: self.colors_sh_learning_rate,
+            config: self.to_owned(),
             metric_optimization: Default::default(),
-            opacities_learning_rate: self.opacities_learning_rate,
             param_optimizer_2d: param_optimizer.init(),
             param_optimizer_3d: param_optimizer.init(),
-            positions_learning_rate: self.positions_learning_rate_start,
             positions_learning_rate_decay: Self::learning_rate_decay(
                 self.positions_learning_count,
-                self.positions_learning_rate_start,
+                self.positions_learning_rate,
                 self.positions_learning_rate_end,
             ),
-            positions_learning_rate_end: self.positions_learning_rate_end,
-            render_options: self.render_options.to_owned(),
-            rotations_learning_rate: self.rotations_learning_rate,
-            scalings_learning_rate: self.scalings_learning_rate,
             scene: Gaussian3dScene::init(device, priors),
         }
     }
@@ -62,11 +56,11 @@ impl Gaussian3dTrainerConfig {
     #[inline]
     fn learning_rate_decay(
         learning_count: u64,
-        learning_rate_start: LearningRate,
+        learning_rate: LearningRate,
         learning_rate_end: LearningRate,
     ) -> LearningRate {
         learning_rate_end
-            .div(learning_rate_start)
+            .div(learning_rate)
             .powf((learning_count as LearningRate).recip())
     }
 }
@@ -88,7 +82,7 @@ mod tests {
             .with_positions_learning_count(7000);
         let decay = Gaussian3dTrainerConfig::learning_rate_decay(
             config.positions_learning_count,
-            config.positions_learning_rate_start,
+            config.positions_learning_rate,
             config.positions_learning_rate_end,
         );
         assert_eq!(decay, 0.9993423349014151);
@@ -97,7 +91,7 @@ mod tests {
             .with_positions_learning_count(30000);
         let decay = Gaussian3dTrainerConfig::learning_rate_decay(
             config.positions_learning_count,
-            config.positions_learning_rate_start,
+            config.positions_learning_rate,
             config.positions_learning_rate_end,
         );
         assert_eq!(decay, 0.9998465061085267);
