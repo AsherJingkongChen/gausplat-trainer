@@ -74,7 +74,13 @@ where
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > loss");
 
-        let grads = GradientsParams::from_grads(loss.backward(), &self.scene);
+        let mut grads = loss.backward();
+        let _positions_2d_grad_norm = output
+            .positions_2d_grad_norm_ref
+            .grad(&mut grads)
+            .expect("positions_2d_grad_norm should exist as a gradient");
+
+        let grads = GradientsParams::from_grads(grads, &self.scene);
 
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > grads");
