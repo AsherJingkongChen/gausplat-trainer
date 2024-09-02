@@ -6,8 +6,8 @@ pub use burn::{tensor::backend::AutodiffBackend, LearningRate};
 pub use config::*;
 pub use gausplat_importer::dataset::gaussian_3d::Camera;
 pub use gausplat_renderer::scene::gaussian_3d::{
-    backend::Autodiff, render::RenderOptions, Backend, Gaussian3dRenderer,
-    Gaussian3dScene,
+    backend::Autodiff, render::Gaussian3dRendererOptions, Backend,
+    Gaussian3dRenderer, Gaussian3dScene,
 };
 pub use optimize::*;
 
@@ -35,7 +35,7 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub positions_learning_rate: LearningRate,
     pub positions_learning_rate_decay: LearningRate,
     pub positions_learning_rate_end: LearningRate,
-    pub render_options: RenderOptions,
+    pub render_options: Gaussian3dRendererOptions,
     pub rotations_learning_rate: LearningRate,
     pub scalings_learning_rate: LearningRate,
     pub scene: Gaussian3dScene<AB>,
@@ -48,7 +48,7 @@ where
     pub fn train(
         &mut self,
         camera: &Camera,
-    ) {
+    ) -> &mut Self {
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::render");
 
@@ -82,6 +82,8 @@ where
 
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::render > optimize");
+
+        self
     }
 }
 

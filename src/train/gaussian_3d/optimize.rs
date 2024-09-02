@@ -9,7 +9,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
     pub fn optimize(
         &mut self,
         mut grads: GradientsParams,
-    ) {
+    ) -> &mut Self {
         let scene = self.scene.to_owned();
 
         debug_assert_eq!(scene.colors_sh.id, self.scene.colors_sh.id);
@@ -51,6 +51,8 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             .positions_learning_rate
             .mul(self.positions_learning_rate_decay)
             .max(self.positions_learning_rate_end);
+
+        self
     }
 
     fn optimize_param<const D: usize>(

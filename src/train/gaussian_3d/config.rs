@@ -22,8 +22,8 @@ pub struct Gaussian3dTrainerConfig {
     #[config(default = "1.6e-6")]
     pub positions_learning_rate_end: LearningRate,
 
-    #[config(default = "RenderOptions::default()")]
-    pub render_options: RenderOptions,
+    #[config(default = "Gaussian3dRendererOptions::default()")]
+    pub render_options: Gaussian3dRendererOptions,
 
     #[config(default = "1e-3")]
     pub rotations_learning_rate: LearningRate,
