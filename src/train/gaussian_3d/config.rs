@@ -1,9 +1,8 @@
 pub use super::*;
 pub use burn::config::Config;
-pub use gausplat_importer::dataset::gaussian_3d::Gaussian3dDataset;
+pub use gausplat_importer::dataset::gaussian_3d::{Point, Points};
 
 use burn::optim::AdamConfig;
-use gausplat_renderer::preset::gaussian_3d::*;
 use std::ops::Div;
 
 #[derive(Config, Copy, Debug)]
@@ -26,9 +25,6 @@ pub struct Gaussian3dTrainerConfig {
     #[config(default = "RenderOptions::default()")]
     pub render_options: RenderOptions,
 
-    #[config(default = "SEED")]
-    pub random_generator_seed: u64,
-
     #[config(default = "1e-3")]
     pub rotations_learning_rate: LearningRate,
 
@@ -40,13 +36,11 @@ impl Gaussian3dTrainerConfig {
     pub fn init<AB: AutodiffBackend>(
         &self,
         device: &AB::Device,
-        dataset: Gaussian3dDataset,
+        priors: Points,
     ) -> Gaussian3dTrainer<AB> {
         let param_optimizer = AdamConfig::new().with_epsilon(1e-15);
         Gaussian3dTrainer {
-            cameras: dataset.cameras.into_iter().collect(),
             colors_sh_learning_rate: self.colors_sh_learning_rate,
-            iteration: 0,
             metric_optimization: Default::default(),
             opacities_learning_rate: self.opacities_learning_rate,
             param_optimizer_2d: param_optimizer.init(),
@@ -58,11 +52,10 @@ impl Gaussian3dTrainerConfig {
                 self.positions_learning_rate_end,
             ),
             positions_learning_rate_end: self.positions_learning_rate_end,
-            random_generator: StdRng::seed_from_u64(self.random_generator_seed),
             render_options: self.render_options,
             rotations_learning_rate: self.rotations_learning_rate,
             scalings_learning_rate: self.scalings_learning_rate,
-            scene: Gaussian3dScene::init(device, dataset.points),
+            scene: Gaussian3dScene::init(device, priors),
         }
     }
 
@@ -79,6 +72,7 @@ impl Gaussian3dTrainerConfig {
 }
 
 impl Default for Gaussian3dTrainerConfig {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
