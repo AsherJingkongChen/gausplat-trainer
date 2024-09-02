@@ -50,38 +50,39 @@ where
         camera: &Camera,
     ) -> &mut Self {
         #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::render");
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train");
 
         let output = self.scene.render(&camera.view, self.render_options);
         let colors_rgb_2d_output = output.colors_rgb_2d;
 
         #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::render > output");
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > output");
 
         let colors_rgb_2d_reference = Tensor::from_data(
             camera.image.decode_rgb().unwrap().into_tensor_data(),
             &colors_rgb_2d_output.device(),
-        );
+        )
+        .div_scalar(255.0);
 
         #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::render > reference");
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > reference");
 
         let loss = self
             .metric_optimization
             .forward(colors_rgb_2d_output, colors_rgb_2d_reference);
 
         #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::render > loss");
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > loss");
 
         let grads = GradientsParams::from_grads(loss.backward(), &self.scene);
 
         #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::render > grads");
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > grads");
 
         self.optimize(grads);
 
         #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::render > optimize");
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > optimize");
 
         self
     }

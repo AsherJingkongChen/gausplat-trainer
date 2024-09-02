@@ -12,8 +12,6 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
     ) -> &mut Self {
         let scene = self.scene.to_owned();
 
-        debug_assert_eq!(scene.colors_sh.id, self.scene.colors_sh.id);
-
         self.scene.colors_sh = Self::optimize_param(
             &mut self.param_optimizer_3d,
             self.colors_sh_learning_rate,
@@ -62,11 +60,13 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         grads: &mut GradientsParams,
     ) -> Param<Tensor<AB, D>> {
         let id = &param.id;
-        if let Some(grad) = grads.remove::<AB, D>(id) {
+
+        if let Some(grad) = grads.remove::<AB::InnerBackend, D>(id) {
             let mut grads = GradientsParams::new();
             grads.register(id.to_owned(), grad);
             param = optimizer.step(learning_rate, param, grads);
         }
+
         param
     }
 }
