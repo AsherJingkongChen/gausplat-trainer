@@ -52,7 +52,7 @@ where
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train");
 
-        let output = self.scene.render(&camera.view, self.render_options);
+        let output = self.scene.render(&camera.view, &self.render_options);
         let colors_rgb_2d_output = output.colors_rgb_2d;
 
         #[cfg(debug_assertions)]
