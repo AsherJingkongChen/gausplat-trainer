@@ -2,13 +2,13 @@ pub mod config;
 pub mod optimize;
 pub mod refine;
 
-pub use crate::metric::MeanAbsoluteError;
+pub use crate::metric;
 pub use burn::{
     module::Param, tensor::backend::AutodiffBackend, tensor::Tensor,
     LearningRate,
 };
 pub use config::*;
-pub use gausplat_importer::dataset::gaussian_3d::Camera;
+pub use gausplat_importer::dataset::gaussian_3d::{Camera, Image};
 pub use gausplat_renderer::scene::gaussian_3d::{
     backend::Autodiff, render::Gaussian3dRendererOptions, Backend,
     Gaussian3dRenderer, Gaussian3dScene,
@@ -31,7 +31,7 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub config: Gaussian3dTrainerConfig,
     pub iteration: u64,
     pub learning_rate_decay_positions: LearningRate,
-    pub metric_optimization: MeanAbsoluteError,
+    pub metric_optimization: metric::MeanAbsoluteError,
     pub options_renderer: Gaussian3dRendererOptions,
     pub param_optimizer_2d: AdamParamOptimizer<AB, 2>,
     pub param_optimizer_3d: AdamParamOptimizer<AB, 3>,
@@ -49,18 +49,18 @@ where
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train");
 
-        let output = self
-            .scene
-            .render(&camera.view, &self.options_renderer);
+        let output = self.scene.render(&camera.view, &self.options_renderer);
 
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > output");
 
-        let colors_rgb_2d = Tensor::from_data(
-            camera.image.decode_rgb().unwrap().into_tensor_data(),
-            &output.colors_rgb_2d.device(),
-        )
-        .div_scalar(255.0);
+        let colors_rgb_2d = Tensor::from_inner(
+            Self::tensor_from_image(
+                &camera.image,
+                &output.colors_rgb_2d.device(),
+            )
+            .expect("The image error should be handled in `gausplat-importer`"),
+        );
 
         let loss = self
             .metric_optimization
@@ -70,9 +70,10 @@ where
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > loss");
 
         let mut grads = loss.backward();
+
         let positions_2d_grad_norm = output
             .positions_2d_grad_norm_ref
-            .grad(&mut grads)
+            .grad_remove(&mut grads)
             .expect("positions_2d_grad_norm should exist as a gradient");
 
         let grads = GradientsParams::from_grads(grads, &self.scene);
@@ -93,6 +94,16 @@ where
         self.iteration += 1;
 
         self
+    }
+
+    pub fn tensor_from_image(
+        image: &Image,
+        device: &B::Device,
+    ) -> Result<Tensor<B, 3>, gausplat_importer::error::Error> {
+        Ok(
+            Tensor::from_data(image.decode_rgb()?.into_tensor_data(), device)
+                .div_scalar(255.0),
+        )
     }
 }
 
