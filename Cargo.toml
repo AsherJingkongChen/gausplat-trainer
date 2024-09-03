@@ -15,3 +15,6 @@ burn = {workspace = true, features = ["autodiff", "default"]}
 log = {workspace = true}
 rayon = {workspace = true}
 thiserror = {workspace = true}
+
+[dev-dependencies]
+burn = {workspace = true, features = ["ndarray"]}

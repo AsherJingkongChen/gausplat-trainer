@@ -1,0 +1,416 @@
+//! ## Notice
+//!
+//! The module was adapted from the [source code of Burn v0.14.0](
+//! https://github.com/tracel-ai/burn/blob/v0.14.0/crates/burn-core/src/optim/adam.rs).
+//!
+//! Differences between the original module and this adaptation include:
+//! 1. Improved accessibility: All structs and properties are public.
+//! 2. Greater flexibility and interoperability with other modules.
+//! 3. Easier debugging and testing due to public visibility.
+//!
+//! ## License
+//!
+//! MIT License
+//!
+//! Copyright (c) 2022 Nathaniel Simard & Burn Framework Contributors
+
+pub use burn::{
+    config::Config,
+    grad_clipping::GradientClippingConfig,
+    module::AutodiffModule,
+    optim::{
+        adaptor::OptimizerAdaptor,
+        decay::{WeightDecay, WeightDecayConfig},
+        SimpleOptimizer,
+    },
+    record::Record,
+    tensor::{
+        backend::{AutodiffBackend, Backend},
+        ElementConversion, Tensor,
+    },
+    LearningRate,
+};
+use std::fmt;
+
+/// Adam configuration.
+#[derive(Config)]
+pub struct AdamConfig {
+    /// The coefficient used for computing running average of gradient.
+    #[config(default = 0.9)]
+    pub beta_1: f64,
+
+    /// The coefficient used for computing running average of squared gradient.
+    #[config(default = 0.999)]
+    pub beta_2: f64,
+
+    /// A value added to the denominator to improve numerical stability.
+    #[config(default = 1e-5)]
+    pub epsilon: f64,
+
+    /// L2 penalty.
+    pub weight_decay: Option<f64>,
+}
+
+/// Adam optimizer as described in the paper:
+/// ["Adam: A Method for Stochastic Optimization"](https://arxiv.org/pdf/1412.6980.pdf).
+#[derive(Clone)]
+pub struct Adam<AB: AutodiffBackend, const D: usize> {
+    pub beta_1: f64,
+    pub beta_2: f64,
+    pub epsilon: f64,
+    pub state: Option<AdamState<AB::InnerBackend, D>>,
+    pub weight_decay: Option<AB::FloatElem>,
+}
+
+/// Adam optimizer state.
+#[derive(Clone, Debug, Record)]
+pub struct AdamState<B: Backend, const D: usize> {
+    pub moment_1: Tensor<B, D>,
+    pub moment_2: Tensor<B, D>,
+    pub time: i32,
+}
+
+impl AdamConfig {
+    /// Initialize Adam optimizer.
+    ///
+    /// ## Returns
+    ///
+    /// An optimizer that can be used to optimize a value.
+    pub fn init<AB: AutodiffBackend, const D: usize>(&self) -> Adam<AB, D> {
+        Adam {
+            beta_1: self.beta_1,
+            beta_2: self.beta_2,
+            epsilon: self.epsilon,
+            state: None,
+            weight_decay: self.weight_decay.map(AB::FloatElem::from_elem),
+        }
+    }
+}
+
+impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
+    /// Perform a step of the Adam optimizer.
+    ///
+    /// ## Arguments
+    ///
+    /// * `learning_rate` - The number to multiply the gradient by.
+    /// * `value` - The value to optimize.
+    /// * `grad` - The gradient of the value.
+    ///
+    /// ## Returns
+    ///
+    /// The optimized value.
+    pub fn step(
+        &mut self,
+        learning_rate: LearningRate,
+        value: Tensor<AB, D>,
+        mut grad: Tensor<AB::InnerBackend, D>,
+    ) -> Tensor<AB, D> {
+        let is_require_grad = value.is_require_grad();
+        let value = value.inner();
+
+        if let Some(weight_decay) = self.weight_decay {
+            grad = grad + value.to_owned() * weight_decay;
+        }
+
+        let mut moment_1 = grad.to_owned() * (1.0 - self.beta_1);
+        let mut moment_2 = grad.powf_scalar(2.0) * (1.0 - self.beta_2);
+        let mut time = 1;
+
+        if let Some(state) = &self.state {
+            moment_1 = moment_1 + state.moment_1.to_owned() * self.beta_1;
+            moment_2 = moment_2 + state.moment_2.to_owned() * self.beta_2;
+            time = time + state.time;
+        }
+
+        self.state = Some(AdamState {
+            moment_1: moment_1.to_owned(),
+            moment_2: moment_2.to_owned(),
+            time,
+        });
+
+        let moment_1_corrected = moment_1 / (1.0 - self.beta_1.powi(time));
+        let moment_2_corrected = moment_2 / (1.0 - self.beta_2.powi(time));
+        let grad_corrected =
+            moment_1_corrected / (moment_2_corrected.sqrt() + self.epsilon);
+        let value_corrected = value - grad_corrected * learning_rate;
+
+        Tensor::from_inner(value_corrected).set_require_grad(is_require_grad)
+    }
+
+    /// Move the optimizer to a device.
+    ///
+    /// ## Arguments
+    ///
+    /// * `device` - The device to move the optimizer to.
+    ///
+    /// ## Returns
+    ///
+    /// The optimizer moved to the device.
+    pub fn to_device(
+        mut self,
+        device: &AB::Device,
+    ) -> Self {
+        self.state = self.state.map(|mut state| {
+            state.moment_1 = state.moment_1.to_device(device);
+            state.moment_2 = state.moment_2.to_device(device);
+            state
+        });
+
+        self
+    }
+
+    /// Get the current state of the optimizer as a [record](Record).
+    pub fn to_record(&self) -> Option<AdamState<AB::InnerBackend, D>> {
+        self.state.to_owned()
+    }
+
+    /// Load the state of the optimizer as a [record](Record).
+    ///
+    /// ## Arguments
+    ///
+    /// * `record` - The record to load.
+    pub fn load_record(
+        &mut self,
+        record: Option<AdamState<AB::InnerBackend, D>>,
+    ) {
+        self.state = record;
+    }
+}
+
+impl<AB: AutodiffBackend, const D: usize> fmt::Debug for Adam<AB, D> {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
+        f.debug_struct("Adam")
+            .field("beta_1", &self.beta_1)
+            .field("beta_2", &self.beta_2)
+            .field("epsilon", &self.epsilon)
+            .field("state.is_some()", &self.state.is_some())
+            .field("weight_decay.is_some()", &self.weight_decay.is_some())
+            .finish()
+    }
+}
+
+impl fmt::Debug for AdamConfig {
+    fn fmt(
+        &self,
+        f: &mut fmt::Formatter,
+    ) -> fmt::Result {
+        f.debug_struct("AdamConfig")
+            .field("beta_1", &self.beta_1)
+            .field("beta_2", &self.beta_2)
+            .field("epsilon", &self.epsilon)
+            .field("weight_decay", &self.weight_decay)
+            .finish()
+    }
+}
+
+impl Default for AdamConfig {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<AB: AutodiffBackend, const D: usize> Default for Adam<AB, D> {
+    #[inline]
+    fn default() -> Self {
+        AdamConfig::default().init()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use burn::{
+        backend::{Autodiff, NdArray},
+        module::Param,
+        tensor::Tensor,
+    };
+
+    #[test]
+    fn with_numbers() {
+        let device = Default::default();
+
+        let learning_rate = 0.01;
+        let optimizer_config = AdamConfig::new()
+            .with_epsilon(1e-8)
+            .with_beta_1(0.9)
+            .with_beta_2(0.999)
+            .with_weight_decay(Some(0.5));
+        let mut optimizer_for_weight = optimizer_config.init();
+        let mut optimizer_for_bias =
+            optimizer_config.init::<Autodiff<NdArray>, 1>();
+
+        let mut weight = Param::from_data(
+            [
+                [-0.3206, 0.1374, 0.4043, 0.3200, 0.0859, 0.0671],
+                [0.0777, -0.0185, -0.3667, 0.2550, 0.1955, -0.2922],
+                [-0.0190, 0.0346, -0.2962, 0.2484, -0.2780, 0.3130],
+                [-0.2980, -0.2214, -0.3715, -0.2981, -0.0761, 0.1626],
+                [0.3300, -0.2182, 0.3717, -0.1729, 0.3796, -0.0304],
+                [-0.0159, -0.0120, 0.1258, 0.1921, 0.0293, 0.3833],
+            ],
+            &device,
+        );
+        let mut bias = Param::from_data(
+            [-0.3905, 0.0884, -0.0970, 0.1176, 0.1366, 0.0130],
+            &device,
+        );
+        let x_1 = Tensor::<Autodiff<NdArray>, 2>::from_data(
+            [
+                [0.6294, 0.0940, 0.8176, 0.8824, 0.5228, 0.4310],
+                [0.7152, 0.9559, 0.7893, 0.5684, 0.5939, 0.8883],
+            ],
+            &device,
+        )
+        .require_grad();
+        let x_2 = Tensor::<Autodiff<NdArray>, 2>::from_data(
+            [
+                [0.8491, 0.2108, 0.8939, 0.4433, 0.5527, 0.2528],
+                [0.3270, 0.0412, 0.5538, 0.9605, 0.3195, 0.9085],
+            ],
+            &device,
+        )
+        .require_grad();
+
+        let mut grads = x_1
+            .matmul(weight.val())
+            .add(bias.val().to_owned().unsqueeze())
+            .backward();
+        let weight_new = optimizer_for_weight.step(
+            learning_rate,
+            weight.val(),
+            weight.val().grad_remove(&mut grads).unwrap(),
+        );
+        weight = weight.map(|_| weight_new.to_owned());
+        let bias_new = optimizer_for_bias.step(
+            learning_rate,
+            bias.val(),
+            bias.val().grad_remove(&mut grads).unwrap(),
+        );
+        bias = bias.map(|_| bias_new.to_owned());
+
+        let mut grads = x_2
+            .matmul(weight.val())
+            .add(bias.val().to_owned().unsqueeze())
+            .backward();
+        let weight_new = optimizer_for_weight.step(
+            learning_rate,
+            weight.val(),
+            weight.val().grad_remove(&mut grads).unwrap(),
+        );
+        weight = weight.map(|_| weight_new.to_owned());
+        let bias_new = optimizer_for_bias.step(
+            learning_rate,
+            bias.val(),
+            bias.val().grad_remove(&mut grads).unwrap(),
+        );
+        bias = bias.map(|_| bias_new.to_owned());
+
+        let weights_expected = [
+            [-0.340528, 0.118929, 0.384336, 0.300010, 0.066034, 0.047154],
+            [
+                0.057757, -0.036690, -0.386649, 0.235010, 0.175624, -0.312133,
+            ],
+            [
+                -0.038940, 0.016306, -0.316151, 0.228410, -0.297819, 0.293047,
+            ],
+            [
+                -0.317929, -0.239100, -0.391449, -0.318087, -0.095948, 0.142651,
+            ],
+            [
+                0.310050, -0.235909, 0.351736, -0.192888, 0.359710, -0.050343,
+            ],
+            [-0.035840, -0.030203, 0.105840, 0.172110, 0.009440, 0.363346],
+        ]
+        .into();
+        let bias_expected = [
+            -0.410499, 0.068401, -0.116999, 0.097601, 0.116601, -0.006999,
+        ]
+        .into();
+
+        bias.val().to_data().assert_approx_eq(&bias_expected, 5);
+        weight
+            .val()
+            .to_data()
+            .assert_approx_eq(&weights_expected, 2);
+    }
+
+    #[test]
+    fn without_nans() {
+        let device = Default::default();
+
+        let learning_rate = 0.01;
+        let optimizer_config = AdamConfig::new()
+            .with_epsilon(1e-8)
+            .with_beta_1(0.9)
+            .with_beta_2(0.999)
+            .with_weight_decay(Some(0.5));
+        let mut optimizer_for_weight = optimizer_config.init();
+        let mut optimizer_for_bias =
+            optimizer_config.init::<Autodiff<NdArray>, 1>();
+
+        let mut weight = Param::from_data(
+            [
+                [-0.3206, 0.1374, 0.4043, 0.3200, 0.0859, 0.0671],
+                [0.0777, -0.0185, -0.3667, 0.2550, 0.1955, -0.2922],
+                [-0.0190, 0.0346, -0.2962, 0.2484, -0.2780, 0.3130],
+                [-0.2980, -0.2214, -0.3715, -0.2981, -0.0761, 0.1626],
+                [0.3300, -0.2182, 0.3717, -0.1729, 0.3796, -0.0304],
+                [-0.0159, -0.0120, 0.1258, 0.1921, 0.0293, 0.3833],
+            ],
+            &device,
+        );
+        let mut bias = Param::from_data(
+            [-0.3905, 0.0884, -0.0970, 0.1176, 0.1366, 0.0130],
+            &device,
+        );
+        let x = Tensor::<Autodiff<NdArray>, 2>::from_data(
+            [
+                [0.8491, 0.2108, 0.8939, 0.4433, 0.5527, 0.2528],
+                [0.3270, 0.0412, 0.5538, 0.9605, 0.3195, 0.9085],
+            ],
+            &device,
+        )
+        .require_grad();
+
+        let mut grads = x
+            .to_owned()
+            .matmul(weight.val())
+            .add(bias.val().to_owned().unsqueeze())
+            .backward();
+        let weight_new = optimizer_for_weight.step(
+            learning_rate,
+            weight.val(),
+            weight.val().grad_remove(&mut grads).unwrap(),
+        );
+        weight = weight.map(|_| weight_new.to_owned());
+        let bias_new = optimizer_for_bias.step(
+            learning_rate,
+            bias.val(),
+            bias.val().grad_remove(&mut grads).unwrap(),
+        );
+        bias = bias.map(|_| bias_new.to_owned());
+
+        let mut grads = x
+            .matmul(weight.val())
+            .add(bias.val().to_owned().unsqueeze())
+            .backward();
+        let weight_new = optimizer_for_weight.step(
+            learning_rate,
+            weight.val(),
+            weight.val().grad_remove(&mut grads).unwrap(),
+        );
+        weight = weight.map(|_| weight_new.to_owned());
+        let bias_new = optimizer_for_bias.step(
+            learning_rate,
+            bias.val(),
+            bias.val().grad_remove(&mut grads).unwrap(),
+        );
+        _ = bias.map(|_| bias_new.to_owned());
+
+        assert!(weight.is_nan().bool_not().all().into_scalar());
+    }
+}
