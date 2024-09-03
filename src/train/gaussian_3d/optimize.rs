@@ -2,7 +2,6 @@ pub use super::*;
 
 pub use burn::optim::{GradientsParams, Optimizer};
 
-use burn::{module::Param, tensor::Tensor};
 use std::ops::Mul;
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
@@ -14,42 +13,42 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         self.scene.colors_sh = Self::optimize_param(
             &mut self.param_optimizer_3d,
-            self.config.colors_sh_learning_rate,
+            self.config.learning_rate_colors_sh,
             scene.colors_sh,
             &mut grads,
         );
         self.scene.opacities = Self::optimize_param(
             &mut self.param_optimizer_2d,
-            self.config.opacities_learning_rate,
+            self.config.learning_rate_opacities,
             scene.opacities,
             &mut grads,
         );
         self.scene.positions = Self::optimize_param(
             &mut self.param_optimizer_2d,
-            self.config.positions_learning_rate,
+            self.config.learning_rate_positions,
             scene.positions,
             &mut grads,
         );
         self.scene.rotations = Self::optimize_param(
             &mut self.param_optimizer_2d,
-            self.config.rotations_learning_rate,
+            self.config.learning_rate_rotations,
             scene.rotations,
             &mut grads,
         );
         self.scene.scalings = Self::optimize_param(
             &mut self.param_optimizer_2d,
-            self.config.scalings_learning_rate,
+            self.config.learning_rate_scalings,
             scene.scalings,
             &mut grads,
         );
 
         // Scheduling the learning rates
 
-        self.config.positions_learning_rate = self
+        self.config.learning_rate_positions = self
             .config
-            .positions_learning_rate
-            .mul(self.positions_learning_rate_decay)
-            .max(self.config.positions_learning_rate_end);
+            .learning_rate_positions
+            .mul(self.learning_rate_decay_positions)
+            .max(self.config.learning_rate_positions_end);
 
         self
     }
