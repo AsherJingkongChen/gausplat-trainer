@@ -1,8 +1,6 @@
 pub use super::*;
-pub use burn::config::Config;
 pub use gausplat_importer::dataset::gaussian_3d::{Point, Points};
 
-use burn::optim::AdamConfig;
 use std::ops::Div;
 
 #[derive(Config, Debug)]
@@ -27,6 +25,24 @@ pub struct Gaussian3dTrainerConfig {
 
     #[config(default = "5e-3")]
     pub learning_rate_scalings: LearningRate,
+
+    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
+    pub optimizer_colors_sh: AdamConfig,
+
+    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
+    pub optimizer_opacities: AdamConfig,
+
+    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
+    pub optimizer_positions: AdamConfig,
+
+    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
+    pub optimizer_rotations: AdamConfig,
+
+    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
+    pub optimizer_scalings: AdamConfig,
+
+    #[config(default = "Gaussian3dRendererOptions::new()")]
+    pub options_renderer: Gaussian3dRendererOptions,
 }
 
 impl Gaussian3dTrainerConfig {
@@ -40,19 +56,17 @@ impl Gaussian3dTrainerConfig {
             self.learning_rate_positions,
             self.learning_rate_positions_end,
         );
-        let options_renderer = Gaussian3dRendererOptions {
-            colors_sh_degree_max: 0,
-        };
-        let param_optimizer = AdamConfig::new().with_epsilon(1e-15);
 
         Gaussian3dTrainer {
             config: self.to_owned(),
             iteration: 0,
             learning_rate_decay_positions,
-            metric_optimization: Default::default(),
-            options_renderer,
-            param_optimizer_2d: param_optimizer.init(),
-            param_optimizer_3d: param_optimizer.init(),
+            metric_optimization: metric::MeanAbsoluteError,
+            optimizer_colors_sh: self.optimizer_colors_sh.init(),
+            optimizer_opacities: self.optimizer_opacities.init(),
+            optimizer_positions: self.optimizer_positions.init(),
+            optimizer_rotations: self.optimizer_rotations.init(),
+            optimizer_scalings: self.optimizer_scalings.init(),
             scene: Gaussian3dScene::init(device, priors),
         }
     }
