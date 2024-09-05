@@ -21,10 +21,17 @@ pub use burn::{
         backend::{AutodiffBackend, Backend},
         Tensor,
     },
-    LearningRate,
 };
 
-/// Adam configuration.
+/// Adam optimizer as described in the paper:
+/// ["Adam: A Method for Stochastic Optimization"](https://arxiv.org/pdf/1412.6980.pdf).
+#[derive(Clone, Debug)]
+pub struct Adam<AB: AutodiffBackend, const D: usize> {
+    pub config: AdamConfig,
+    pub state: Option<AdamState<AB::InnerBackend, D>>,
+}
+
+/// Adam optimizer configuration.
 #[derive(Config, Debug)]
 pub struct AdamConfig {
     /// The coefficient used for computing running average of gradient.
@@ -43,14 +50,6 @@ pub struct AdamConfig {
     pub weight_decay: Option<f64>,
 }
 
-/// Adam optimizer as described in the paper:
-/// ["Adam: A Method for Stochastic Optimization"](https://arxiv.org/pdf/1412.6980.pdf).
-#[derive(Clone, Debug)]
-pub struct Adam<AB: AutodiffBackend, const D: usize> {
-    pub config: AdamConfig,
-    pub state: Option<AdamState<AB::InnerBackend, D>>,
-}
-
 /// Adam optimizer state.
 #[derive(Clone, Debug, Record)]
 pub struct AdamState<B: Backend, const D: usize> {
@@ -58,6 +57,9 @@ pub struct AdamState<B: Backend, const D: usize> {
     pub moment_2: Tensor<B, D>,
     pub time: i32,
 }
+
+pub type AdamRecord<AB, const D: usize> =
+    Option<AdamState<<AB as AutodiffBackend>::InnerBackend, D>>;
 
 impl AdamConfig {
     /// Initialize Adam optimizer.
@@ -87,7 +89,7 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
     /// The optimized value.
     pub fn step(
         &mut self,
-        learning_rate: LearningRate,
+        learning_rate: f64,
         value: Tensor<AB, D>,
         mut grad: Tensor<AB::InnerBackend, D>,
     ) -> Tensor<AB, D> {
@@ -128,6 +130,29 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         Tensor::from_inner(value).set_require_grad(is_require_grad)
     }
 
+    /// Load the state of the optimizer as [`Record`].
+    ///
+    /// ## Arguments
+    ///
+    /// * `record` - The record to load.
+    ///
+    /// ## Returns
+    ///
+    /// The optimizer with the record loaded.
+    pub fn load_record(
+        &mut self,
+        record: AdamRecord<AB, D>,
+    ) -> &mut Self {
+        self.state = record;
+
+        self
+    }
+
+    /// Get the current state of the optimizer as [`Record`].
+    pub fn to_record(&self) -> AdamRecord<AB, D> {
+        self.state.to_owned()
+    }
+
     /// Move the optimizer to a device.
     ///
     /// ## Arguments
@@ -149,22 +174,12 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
 
         self
     }
+}
 
-    /// Get the current state of the optimizer as [`Record`].
-    pub fn to_record(&self) -> Option<AdamState<AB::InnerBackend, D>> {
-        self.state.to_owned()
-    }
-
-    /// Load the state of the optimizer as [`Record`].
-    ///
-    /// ## Arguments
-    ///
-    /// * `record` - The record to load.
-    pub fn load_record(
-        &mut self,
-        record: Option<AdamState<AB::InnerBackend, D>>,
-    ) {
-        self.state = record;
+impl<AB: AutodiffBackend, const D: usize> Default for Adam<AB, D> {
+    #[inline]
+    fn default() -> Self {
+        AdamConfig::default().init()
     }
 }
 
@@ -172,13 +187,6 @@ impl Default for AdamConfig {
     #[inline]
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl<AB: AutodiffBackend, const D: usize> Default for Adam<AB, D> {
-    #[inline]
-    fn default() -> Self {
-        AdamConfig::default().init()
     }
 }
 
