@@ -13,14 +13,13 @@ pub struct LearningRate {
 /// A learning rate that can be a constant or exponentially decayed.
 #[derive(Config, Debug)]
 pub struct LearningRateConfig {
-    pub start: f64,
-
-    #[config(default = 0.0)]
-    pub end: f64,
-
     // The max count to update the learning rate.
     #[config(default = 0)]
     pub count: u64,
+
+    #[config(default = 0.0)]
+    pub end: f64,
+    pub start: f64,
 }
 
 #[derive(Clone, Debug, Record)]

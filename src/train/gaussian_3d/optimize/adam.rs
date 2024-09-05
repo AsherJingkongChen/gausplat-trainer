@@ -50,10 +50,10 @@ pub struct AdamConfig {
 }
 
 pub type AdamRecord<AB, const D: usize> =
-    Option<AdamRecordInner<<AB as AutodiffBackend>::InnerBackend, D>>;
+    Option<AdamState<<AB as AutodiffBackend>::InnerBackend, D>>;
 
 #[derive(Clone, Debug, Record)]
-pub struct AdamRecordInner<B: Backend, const D: usize> {
+pub struct AdamState<B: Backend, const D: usize> {
     pub moment_1: Tensor<B, D>,
     pub moment_2: Tensor<B, D>,
     pub time: i32,
@@ -106,7 +106,7 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
             time += record.time;
         }
 
-        self.record = Some(AdamRecordInner {
+        self.record = Some(AdamState {
             moment_1: moment_1.to_owned(),
             moment_2: moment_2.to_owned(),
             time,
