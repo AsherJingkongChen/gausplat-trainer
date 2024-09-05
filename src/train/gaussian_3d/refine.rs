@@ -1,5 +1,8 @@
 pub use super::*;
-pub use burn::tensor::Int;
+pub use burn::{config::Config, tensor::Int};
+
+#[derive(Config, Debug)]
+pub struct RefinementConfig {}
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
     pub fn refine(
@@ -20,5 +23,12 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::refine");
 
         self
+    }
+}
+
+impl Default for RefinementConfig {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
     }
 }

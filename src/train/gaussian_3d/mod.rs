@@ -3,9 +3,7 @@ pub mod optimize;
 pub mod refine;
 
 pub use crate::metric::MeanAbsoluteError;
-pub use burn::{
-    module::AutodiffModule, tensor::backend::AutodiffBackend, LearningRate,
-};
+pub use burn::{module::AutodiffModule, tensor::backend::AutodiffBackend};
 pub use config::*;
 pub use gausplat_importer::dataset::gaussian_3d::{Camera, Image};
 pub use gausplat_renderer::scene::gaussian_3d::{
@@ -17,18 +15,23 @@ pub use refine::*;
 
 use crate::function::*;
 use gausplat_renderer::preset::spherical_harmonics::SH_DEGREE_MAX;
+use std::ops::Add;
 
 #[derive(Clone, Debug)]
 pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
-    pub config: Gaussian3dTrainerConfig,
     pub iteration: u64,
-    pub learning_rate_decay_positions: LearningRate,
+    pub learning_rate_colors_sh: LearningRate,
+    pub learning_rate_opacities: LearningRate,
+    pub learning_rate_positions: LearningRate,
+    pub learning_rate_rotations: LearningRate,
+    pub learning_rate_scalings: LearningRate,
     pub metric_optimization: MeanAbsoluteError,
     pub optimizer_colors_sh: Adam<AB, 3>,
     pub optimizer_opacities: Adam<AB, 2>,
     pub optimizer_positions: Adam<AB, 2>,
     pub optimizer_rotations: Adam<AB, 2>,
     pub optimizer_scalings: Adam<AB, 2>,
+    pub options_renderer: Gaussian3dRendererOptions,
     pub scene: Gaussian3dScene<AB>,
 }
 
@@ -45,9 +48,7 @@ where
 
         self.iterate();
 
-        let output = self
-            .scene
-            .render(&camera.view, &self.config.options_renderer);
+        let output = self.scene.render(&camera.view, &self.options_renderer);
         let device = &output.colors_rgb_2d.device();
 
         #[cfg(debug_assertions)]
@@ -84,14 +85,17 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         // Update the options
 
-        let options = &mut self.config.options_renderer;
+        let options = &mut self.options_renderer;
         if self.iteration % 1000 == 0 {
             options.colors_sh_degree_max =
-                (options.colors_sh_degree_max + 1).min(SH_DEGREE_MAX);
+                options.colors_sh_degree_max.add(1).min(SH_DEGREE_MAX);
         }
 
         self
     }
+
+    // pub fn load_record(&mut self, record: &Record) -> &mut Self {
+    // pub fn to_record(&self) -> Record {
 
     pub fn to_device(
         mut self,
