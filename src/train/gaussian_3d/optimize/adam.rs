@@ -28,10 +28,9 @@ pub use burn::{
 #[derive(Clone, Debug)]
 pub struct Adam<AB: AutodiffBackend, const D: usize> {
     pub config: AdamConfig,
-    pub state: Option<AdamState<AB::InnerBackend, D>>,
+    pub record: AdamRecord<AB, D>,
 }
 
-/// Adam optimizer configuration.
 #[derive(Config, Debug)]
 pub struct AdamConfig {
     /// The coefficient used for computing running average of gradient.
@@ -50,34 +49,29 @@ pub struct AdamConfig {
     pub weight_decay: Option<f64>,
 }
 
-/// Adam optimizer state.
+pub type AdamRecord<AB, const D: usize> =
+    Option<AdamRecordInner<<AB as AutodiffBackend>::InnerBackend, D>>;
+
 #[derive(Clone, Debug, Record)]
-pub struct AdamState<B: Backend, const D: usize> {
+pub struct AdamRecordInner<B: Backend, const D: usize> {
     pub moment_1: Tensor<B, D>,
     pub moment_2: Tensor<B, D>,
     pub time: i32,
 }
 
-pub type AdamRecord<AB, const D: usize> =
-    Option<AdamState<<AB as AutodiffBackend>::InnerBackend, D>>;
-
 impl AdamConfig {
-    /// Initialize Adam optimizer.
-    ///
     /// ## Returns
     ///
     /// An optimizer that can be used to optimize a value.
     pub fn init<AB: AutodiffBackend, const D: usize>(&self) -> Adam<AB, D> {
         Adam {
             config: self.to_owned(),
-            state: None,
+            record: None,
         }
     }
 }
 
 impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
-    /// Perform a step of the Adam optimizer.
-    ///
     /// ## Arguments
     ///
     /// * `learning_rate` - The number to multiply the gradient by.
@@ -87,7 +81,7 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
     /// ## Returns
     ///
     /// The optimized value.
-    pub fn step(
+    pub fn update(
         &mut self,
         learning_rate: f64,
         value: Tensor<AB, D>,
@@ -104,15 +98,15 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         let mut moment_2 = grad.powf_scalar(2.0) * (1.0 - self.config.beta_2);
         let mut time = 1;
 
-        if let Some(state) = &self.state {
+        if let Some(record) = &self.record {
             moment_1 =
-                moment_1 + state.moment_1.to_owned() * self.config.beta_1;
+                moment_1 + record.moment_1.to_owned() * self.config.beta_1;
             moment_2 =
-                moment_2 + state.moment_2.to_owned() * self.config.beta_2;
-            time += state.time;
+                moment_2 + record.moment_2.to_owned() * self.config.beta_2;
+            time += record.time;
         }
 
-        self.state = Some(AdamState {
+        self.record = Some(AdamRecordInner {
             moment_1: moment_1.to_owned(),
             moment_2: moment_2.to_owned(),
             time,
@@ -130,34 +124,9 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         Tensor::from_inner(value).set_require_grad(is_require_grad)
     }
 
-    /// Load the state of the optimizer as [`Record`].
-    ///
     /// ## Arguments
     ///
-    /// * `record` - The record to load.
-    ///
-    /// ## Returns
-    ///
-    /// The optimizer with the record loaded.
-    pub fn load_record(
-        &mut self,
-        record: AdamRecord<AB, D>,
-    ) -> &mut Self {
-        self.state = record;
-
-        self
-    }
-
-    /// Get the current state of the optimizer as [`Record`].
-    pub fn to_record(&self) -> AdamRecord<AB, D> {
-        self.state.to_owned()
-    }
-
-    /// Move the optimizer to a device.
-    ///
-    /// ## Arguments
-    ///
-    /// * `device` - The device to move the optimizer to.
+    /// * `device` - The target device.
     ///
     /// ## Returns
     ///
@@ -166,10 +135,10 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         mut self,
         device: &AB::Device,
     ) -> Self {
-        self.state = self.state.map(|mut state| {
-            state.moment_1 = state.moment_1.to_device(device);
-            state.moment_2 = state.moment_2.to_device(device);
-            state
+        self.record = self.record.map(|mut record| {
+            record.moment_1 = record.moment_1.to_device(device);
+            record.moment_2 = record.moment_2.to_device(device);
+            record
         });
 
         self
@@ -196,7 +165,6 @@ mod tests {
     use burn::{
         backend::{Autodiff, NdArray},
         module::Param,
-        tensor::Tensor,
     };
 
     #[test]
@@ -254,14 +222,14 @@ mod tests {
         let grad = weight.1.grad_remove(&mut grads).unwrap();
         let weight = Param::initialized(
             weight.0,
-            optimizer_for_weight.step(learning_rate, weight.1, grad),
+            optimizer_for_weight.update(learning_rate, weight.1, grad),
         );
 
         let bias = bias.consume();
         let grad = bias.1.grad_remove(&mut grads).unwrap();
         let bias = Param::initialized(
             bias.0,
-            optimizer_for_bias.step(learning_rate, bias.1, grad),
+            optimizer_for_bias.update(learning_rate, bias.1, grad),
         );
 
         let mut grads = x_2
@@ -273,14 +241,14 @@ mod tests {
         let grad = weight.1.grad_remove(&mut grads).unwrap();
         let weight = Param::initialized(
             weight.0,
-            optimizer_for_weight.step(learning_rate, weight.1, grad),
+            optimizer_for_weight.update(learning_rate, weight.1, grad),
         );
 
         let bias = bias.consume();
         let grad = bias.1.grad_remove(&mut grads).unwrap();
         let bias = Param::initialized(
             bias.0,
-            optimizer_for_bias.step(learning_rate, bias.1, grad),
+            optimizer_for_bias.update(learning_rate, bias.1, grad),
         );
 
         let weights_expected = [
@@ -361,13 +329,13 @@ mod tests {
         let grad = weight.grad_remove(&mut grads).unwrap();
         weight = Param::initialized(
             weight.id.to_owned(),
-            optimizer_for_weight.step(learning_rate, weight.val(), grad),
+            optimizer_for_weight.update(learning_rate, weight.val(), grad),
         );
 
         let grad = bias.grad_remove(&mut grads).unwrap();
         bias = Param::initialized(
             bias.id.to_owned(),
-            optimizer_for_bias.step(learning_rate, bias.val(), grad),
+            optimizer_for_bias.update(learning_rate, bias.val(), grad),
         );
 
         let mut grads = x
@@ -378,13 +346,13 @@ mod tests {
         let grad = weight.grad_remove(&mut grads).unwrap();
         weight = Param::initialized(
             weight.id.to_owned(),
-            optimizer_for_weight.step(learning_rate, weight.val(), grad),
+            optimizer_for_weight.update(learning_rate, weight.val(), grad),
         );
 
         let grad = bias.grad_remove(&mut grads).unwrap();
         _ = Param::initialized(
             bias.id.to_owned(),
-            optimizer_for_bias.step(learning_rate, bias.val(), grad),
+            optimizer_for_bias.update(learning_rate, bias.val(), grad),
         );
 
         assert!(weight.is_nan().bool_not().all().into_scalar());

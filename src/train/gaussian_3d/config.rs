@@ -4,10 +4,10 @@ pub use gausplat_importer::dataset::gaussian_3d::{Point, Points};
 
 #[derive(Config, Debug)]
 pub struct Gaussian3dTrainerConfig {
-    #[config(default = "LearningRateConfig::new(2.5e-3)")]
+    #[config(default = "2.5e-3.into()")]
     pub learning_rate_colors_sh: LearningRateConfig,
 
-    #[config(default = "LearningRateConfig::new(2.5e-2)")]
+    #[config(default = "2.5e-2.into()")]
     pub learning_rate_opacities: LearningRateConfig,
 
     #[config(
@@ -15,10 +15,10 @@ pub struct Gaussian3dTrainerConfig {
     )]
     pub learning_rate_positions: LearningRateConfig,
 
-    #[config(default = "LearningRateConfig::new(1e-3)")]
+    #[config(default = "1e-3.into()")]
     pub learning_rate_rotations: LearningRateConfig,
 
-    #[config(default = "LearningRateConfig::new(5e-3)")]
+    #[config(default = "5e-3.into()")]
     pub learning_rate_scalings: LearningRateConfig,
 
     #[config(default = "AdamConfig::default().with_epsilon(1e-15)")]
@@ -26,16 +26,8 @@ pub struct Gaussian3dTrainerConfig {
 
     #[config(default = "Default::default()")]
     pub options_renderer: Gaussian3dRendererOptions,
-    // # opt.densify_from_iter # 500
-    // # opt.densify_until_iter # 15000
-    // # opt.densification_interval # 100
-
-    // # opt.densify_grad_threshold # 2e-4
-    // # opt.densify_opacity_threshold = 5e-3
-    // # opt.densify_size_threshold = 20
-
-    // opt.sh_update_interval # 1000
-    // opt.opacity_reset_interval # 3000
+    // #[config(default = "Default::default()")]
+    // pub refiner: RefinerConfig,
 }
 
 impl Gaussian3dTrainerConfig {
@@ -59,6 +51,9 @@ impl Gaussian3dTrainerConfig {
             optimizer_scalings: self.optimizer_adam.init(),
             options_renderer: self.options_renderer.to_owned(),
             scene: Gaussian3dScene::init(device, priors),
+            positions_2d_grad_norm_state: todo!(),
+            radii_state: todo!(),
+            time_state: todo!(),
         }
     }
 }

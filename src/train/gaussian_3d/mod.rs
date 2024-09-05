@@ -32,7 +32,10 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub optimizer_rotations: Adam<AB, 2>,
     pub optimizer_scalings: Adam<AB, 2>,
     pub options_renderer: Gaussian3dRendererOptions,
+    pub positions_2d_grad_norm_state: Tensor<AB::InnerBackend, 1>,
+    pub radii_state: Tensor<AB::InnerBackend, 1, Int>,
     pub scene: Gaussian3dScene<AB>,
+    pub time_state: Tensor<AB::InnerBackend, 1, Int>,
 }
 
 impl<B: Backend> Gaussian3dTrainer<Autodiff<B>>
@@ -43,10 +46,14 @@ where
         &mut self,
         camera: &Camera,
     ) -> &mut Self {
-        #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train");
+        self.iteration += 1;
 
-        self.iterate();
+        #[cfg(debug_assertions)]
+        log::debug!(
+            target: "gausplat_trainer::train",
+            "Gaussian3dTrainer::train > {}",
+            self.iteration,
+        );
 
         let output = self.scene.render(&camera.view, &self.options_renderer);
         let device = &output.colors_rgb_2d.device();
@@ -78,22 +85,6 @@ where
 }
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
-    pub fn iterate(&mut self) -> &mut Self {
-        // Increase the iteration
-
-        self.iteration += 1;
-
-        // Update the options
-
-        let options = &mut self.options_renderer;
-        if self.iteration % 1000 == 0 {
-            options.colors_sh_degree_max =
-                options.colors_sh_degree_max.add(1).min(SH_DEGREE_MAX);
-        }
-
-        self
-    }
-
     // pub fn load_record(&mut self, record: &Record) -> &mut Self {
     // pub fn to_record(&self) -> Record {
 

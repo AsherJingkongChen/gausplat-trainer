@@ -3,7 +3,7 @@ pub use burn::{config::Config, record::Record};
 use std::ops::{Deref, DerefMut, Div, Mul};
 
 /// A learning rate that can be a constant or exponentially decayed.
-#[derive(Clone, Debug, Record)]
+#[derive(Clone, Debug)]
 pub struct LearningRate {
     pub current: f64,
     pub decay: f64,
@@ -92,6 +92,20 @@ impl DerefMut for LearningRate {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.current
+    }
+}
+
+impl From<f64> for LearningRateConfig {
+    #[inline]
+    fn from(start: f64) -> Self {
+        Self::new(start)
+    }
+}
+
+impl From<f64> for LearningRate {
+    #[inline]
+    fn from(start: f64) -> Self {
+        LearningRateConfig::from(start).init()
     }
 }
 
