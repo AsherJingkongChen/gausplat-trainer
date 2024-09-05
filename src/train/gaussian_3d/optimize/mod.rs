@@ -53,6 +53,9 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 self.learning_rate_decay_positions,
             );
 
+        #[cfg(debug_assertions)]
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::optimize");
+
         self
     }
 

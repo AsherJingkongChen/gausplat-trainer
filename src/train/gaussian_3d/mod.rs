@@ -2,8 +2,10 @@ pub mod config;
 pub mod optimize;
 pub mod refine;
 
-pub use crate::metric;
-pub use burn::{tensor::backend::AutodiffBackend, LearningRate};
+pub use crate::metric::MeanAbsoluteError;
+pub use burn::{
+    module::AutodiffModule, tensor::backend::AutodiffBackend, LearningRate,
+};
 pub use config::*;
 pub use gausplat_importer::dataset::gaussian_3d::{Camera, Image};
 pub use gausplat_renderer::scene::gaussian_3d::{
@@ -13,14 +15,15 @@ pub use gausplat_renderer::scene::gaussian_3d::{
 pub use optimize::*;
 pub use refine::*;
 
-use gausplat_importer::function::IntoTensorData;
+use crate::function::*;
+use gausplat_renderer::preset::spherical_harmonics::SH_DEGREE_MAX;
 
 #[derive(Clone, Debug)]
 pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub config: Gaussian3dTrainerConfig,
     pub iteration: u64,
     pub learning_rate_decay_positions: LearningRate,
-    pub metric_optimization: metric::MeanAbsoluteError,
+    pub metric_optimization: MeanAbsoluteError,
     pub optimizer_colors_sh: Adam<AB, 3>,
     pub optimizer_opacities: Adam<AB, 2>,
     pub optimizer_positions: Adam<AB, 2>,
@@ -40,18 +43,18 @@ where
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train");
 
+        self.iterate();
+
         let output = self
             .scene
             .render(&camera.view, &self.config.options_renderer);
+        let device = &output.colors_rgb_2d.device();
 
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > output");
 
-        let colors_rgb_2d = Self::get_tensor_from_image(
-            &camera.image,
-            &output.colors_rgb_2d.device(),
-        )
-        .expect("The image error should be handled in `gausplat-importer`");
+        let colors_rgb_2d = get_tensor_from_image(&camera.image, device)
+            .expect("The image error should be handled in `gausplat-importer`");
 
         let loss = self
             .metric_optimization
@@ -62,32 +65,34 @@ where
 
         let grads = &mut loss.backward();
 
+        let positions_2d_grad_norm =
+            output.positions_2d_grad_norm_ref.grad_remove(grads);
+
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > grads");
 
-        let positions_2d_grad_norm = self
-            .scene
-            .positions_2d_grad_norm_ref
-            .grad_remove(grads)
-            .expect("positions_2d_grad_norm should exist as a gradient");
-
-        self.optimize(grads);
-
-        #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > optimize");
-
-        self.refine(positions_2d_grad_norm, output.radii);
-
-        #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > refine");
-
-        self.iteration += 1;
-
-        self
+        self.optimize(grads)
+            .refine(positions_2d_grad_norm, output.radii)
     }
 }
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
+    pub fn iterate(&mut self) -> &mut Self {
+        // Increase the iteration
+
+        self.iteration += 1;
+
+        // Update the options
+
+        let options = &mut self.config.options_renderer;
+        if self.iteration % 1000 == 0 {
+            options.colors_sh_degree_max =
+                (options.colors_sh_degree_max + 1).min(SH_DEGREE_MAX);
+        }
+
+        self
+    }
+
     pub fn to_device(
         mut self,
         device: &AB::Device,
@@ -100,16 +105,6 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         self.scene = self.scene.to_device(device);
 
         self
-    }
-
-    pub fn get_tensor_from_image(
-        image: &Image,
-        device: &AB::Device,
-    ) -> Result<Tensor<AB, 3>, gausplat_importer::error::Error> {
-        Ok(
-            Tensor::from_data(image.decode_rgb()?.into_tensor_data(), device)
-                .div_scalar(255.0),
-        )
     }
 }
 

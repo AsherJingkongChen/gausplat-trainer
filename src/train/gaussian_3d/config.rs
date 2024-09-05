@@ -27,22 +27,21 @@ pub struct Gaussian3dTrainerConfig {
     pub learning_rate_scalings: LearningRate,
 
     #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
-    pub optimizer_colors_sh: AdamConfig,
-
-    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
-    pub optimizer_opacities: AdamConfig,
-
-    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
-    pub optimizer_positions: AdamConfig,
-
-    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
-    pub optimizer_rotations: AdamConfig,
-
-    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
-    pub optimizer_scalings: AdamConfig,
+    pub optimizer_adam: AdamConfig,
 
     #[config(default = "Gaussian3dRendererOptions::new()")]
     pub options_renderer: Gaussian3dRendererOptions,
+    // densify
+
+    // # opt.densify_from_iter # 500
+    // # opt.densify_until_iter # 15000
+    // # opt.densification_interval # 100
+
+    // # opt.densify_grad_threshold # 2e-4
+    // # opt.densify_opacity_threshold = 5e-3
+    // # opt.densify_size_threshold = 20
+
+    // opt.sh_update_interval # 1000
 }
 
 impl Gaussian3dTrainerConfig {
@@ -61,12 +60,12 @@ impl Gaussian3dTrainerConfig {
             config: self.to_owned(),
             iteration: 0,
             learning_rate_decay_positions,
-            metric_optimization: metric::MeanAbsoluteError,
-            optimizer_colors_sh: self.optimizer_colors_sh.init(),
-            optimizer_opacities: self.optimizer_opacities.init(),
-            optimizer_positions: self.optimizer_positions.init(),
-            optimizer_rotations: self.optimizer_rotations.init(),
-            optimizer_scalings: self.optimizer_scalings.init(),
+            metric_optimization: MeanAbsoluteError::init(),
+            optimizer_colors_sh: self.optimizer_adam.init(),
+            optimizer_opacities: self.optimizer_adam.init(),
+            optimizer_positions: self.optimizer_adam.init(),
+            optimizer_rotations: self.optimizer_adam.init(),
+            optimizer_scalings: self.optimizer_adam.init(),
             scene: Gaussian3dScene::init(device, priors),
         }
     }

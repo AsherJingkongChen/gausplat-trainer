@@ -107,7 +107,7 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
                 moment_1 + state.moment_1.to_owned() * self.config.beta_1;
             moment_2 =
                 moment_2 + state.moment_2.to_owned() * self.config.beta_2;
-            time = time + state.time;
+            time += state.time;
         }
 
         self.state = Some(AdamState {
@@ -121,7 +121,7 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         let moment_2_corrected =
             moment_2 / (1.0 - self.config.beta_2.powi(time));
         let grad_corrected = moment_1_corrected
-            .div(moment_2_corrected.sqrt() + self.config.epsilon);
+            / (moment_2_corrected.sqrt() + self.config.epsilon);
 
         let value = value - grad_corrected * learning_rate;
 
