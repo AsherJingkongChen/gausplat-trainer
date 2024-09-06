@@ -30,7 +30,7 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub learning_rate_rotations: LearningRate,
     pub learning_rate_scalings: LearningRate,
     pub metric_optimization: MeanAbsoluteError,
-    pub optimizer_colors_sh: Adam<AB, 3>,
+    pub optimizer_colors_sh: Adam<AB, 2>,
     pub optimizer_opacities: Adam<AB, 2>,
     pub optimizer_positions: Adam<AB, 2>,
     pub optimizer_rotations: Adam<AB, 2>,

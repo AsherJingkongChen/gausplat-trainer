@@ -13,6 +13,11 @@ pub fn get_tensor_from_image<B: Backend>(
     )
 }
 
-pub fn get_image_from_tensor<B: Backend>(tensor: &Tensor<B, 3>) -> RgbImage {
-    tensor.to_data().into_rgb_image()
+pub fn get_image_from_tensor<B: Backend>(tensor: Tensor<B, 3>) -> RgbImage {
+    tensor
+        .mul_scalar(255.0)
+        .add_scalar(0.5)
+        .clamp(0.0, 255.0)
+        .into_data()
+        .into_rgb_image()
 }

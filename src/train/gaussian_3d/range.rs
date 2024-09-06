@@ -10,9 +10,11 @@ pub struct RangeOptions {
 impl RangeOptions {
     pub fn has(
         &self,
-        value: u64,
+        iteration: u64,
     ) -> bool {
-        value >= self.start && value < self.end && value % self.step == 0
+        iteration >= self.start
+            && iteration < self.end
+            && (iteration - self.start) % self.step == 0
     }
 }
 
