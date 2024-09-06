@@ -83,11 +83,12 @@ where
             #[cfg(debug_assertions)]
             log::debug!(
                 target: "gausplat_trainer::train",
-                "Gaussian3dTrainer::train > existing if no gradient",
+                "Gaussian3dTrainer::train > Exiting if no gradient",
             );
 
             return self;
         }
+
         let positions_2d_grad_norm =
             positions_2d_grad_norm.expect("Unreachable");
 
