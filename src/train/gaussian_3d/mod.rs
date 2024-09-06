@@ -1,9 +1,12 @@
 pub mod config;
 pub mod optimize;
+pub mod range;
 pub mod refine;
 
 pub use crate::metric::MeanAbsoluteError;
-pub use burn::{module::AutodiffModule, tensor::backend::AutodiffBackend};
+pub use burn::{
+    config::Config, module::AutodiffModule, tensor::backend::AutodiffBackend,
+};
 pub use config::*;
 pub use gausplat_importer::dataset::gaussian_3d::{Camera, Image};
 pub use gausplat_renderer::scene::gaussian_3d::{
@@ -11,6 +14,7 @@ pub use gausplat_renderer::scene::gaussian_3d::{
     Gaussian3dRenderer, Gaussian3dScene, Module, Tensor,
 };
 pub use optimize::*;
+pub use range::*;
 pub use refine::*;
 
 use crate::function::*;
@@ -32,10 +36,8 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub optimizer_rotations: Adam<AB, 2>,
     pub optimizer_scalings: Adam<AB, 2>,
     pub options_renderer: Gaussian3dRendererOptions,
-    pub positions_2d_grad_norm_state: Tensor<AB::InnerBackend, 1>,
-    pub radii_state: Tensor<AB::InnerBackend, 1, Int>,
+    pub refinement: Refinement<AB::InnerBackend>,
     pub scene: Gaussian3dScene<AB>,
-    pub time_state: Tensor<AB::InnerBackend, 1, Int>,
 }
 
 impl<B: Backend> Gaussian3dTrainer<Autodiff<B>>
@@ -56,13 +58,15 @@ where
         );
 
         let output = self.scene.render(&camera.view, &self.options_renderer);
-        let device = &output.colors_rgb_2d.device();
 
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > output");
 
-        let colors_rgb_2d = get_tensor_from_image(&camera.image, device)
-            .expect("The image error should be handled in `gausplat-importer`");
+        let colors_rgb_2d = get_tensor_from_image(
+            &camera.image,
+            &output.colors_rgb_2d.device(),
+        )
+        .expect("The image error should be handled in `gausplat-importer`");
 
         let loss = self
             .metric_optimization
@@ -75,6 +79,17 @@ where
 
         let positions_2d_grad_norm =
             output.positions_2d_grad_norm_ref.grad_remove(grads);
+        if positions_2d_grad_norm.is_none() {
+            #[cfg(debug_assertions)]
+            log::debug!(
+                target: "gausplat_trainer::train",
+                "Gaussian3dTrainer::train > existing if no gradient",
+            );
+
+            return self;
+        }
+        let positions_2d_grad_norm =
+            positions_2d_grad_norm.expect("Unreachable");
 
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > grads");

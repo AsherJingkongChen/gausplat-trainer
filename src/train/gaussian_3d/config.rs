@@ -1,5 +1,4 @@
 pub use super::*;
-pub use burn::config::Config;
 pub use gausplat_importer::dataset::gaussian_3d::{Point, Points};
 
 #[derive(Config, Debug)]
@@ -26,8 +25,9 @@ pub struct Gaussian3dTrainerConfig {
 
     #[config(default = "Default::default()")]
     pub options_renderer: Gaussian3dRendererOptions,
-    // #[config(default = "Default::default()")]
-    // pub refiner: RefinerConfig,
+
+    #[config(default = "Default::default()")]
+    pub refinement: RefinementConfig,
 }
 
 impl Gaussian3dTrainerConfig {
@@ -51,9 +51,7 @@ impl Gaussian3dTrainerConfig {
             optimizer_scalings: self.optimizer_adam.init(),
             options_renderer: self.options_renderer.to_owned(),
             scene: Gaussian3dScene::init(device, priors),
-            positions_2d_grad_norm_state: todo!(),
-            radii_state: todo!(),
-            time_state: todo!(),
+            refinement: self.refinement.init(),
         }
     }
 }
