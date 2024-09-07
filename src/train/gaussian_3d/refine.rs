@@ -9,7 +9,7 @@ pub struct Refinement<B: Backend> {
 
 #[derive(Config, Debug)]
 pub struct RefinementConfig {
-    #[config(default = "RangeOptions::new(100, 15000, 100)")]
+    #[config(default = "RangeOptions::new(500, 15000, 100)")]
     pub range_densification: RangeOptions,
 
     #[config(default = "RangeOptions::new(1000, 4000, 1000)")]
@@ -21,7 +21,7 @@ pub struct RefinementConfig {
     #[config(default = 2e-4)]
     pub threshold_position_2d_grad_norm: f64,
 
-    #[config(default = 8e-2)]
+    #[config(default = 7.8e-2)]
     pub threshold_scaling: f64,
 }
 
@@ -29,7 +29,7 @@ pub type RefinementRecord<B> = Option<RefinementState<B>>;
 
 #[derive(Clone, Debug, Record)]
 pub struct RefinementState<B: Backend> {
-    pub positions_2d_grad_norm: Tensor<B, 1>,
+    pub positions_2d_grad_norm_sum: Tensor<B, 1>,
     pub time: Tensor<B, 1>,
 }
 
@@ -55,24 +55,27 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         let config = &self.refinement.config;
         let device = &radii.device();
-        let shape = radii.dims();
+        let point_count = radii.dims()[0];
         let record =
             self.refinement
                 .record
                 .get_or_insert_with(|| RefinementState {
-                    positions_2d_grad_norm: Tensor::zeros(shape, device),
-                    time: Tensor::zeros(shape, device),
+                    positions_2d_grad_norm_sum: Tensor::zeros(
+                        [point_count],
+                        device,
+                    ),
+                    time: Tensor::zeros([point_count], device),
                 });
 
         // Updating the record
 
         let is_visible = radii.not_equal_elem(0);
 
-        record.positions_2d_grad_norm =
-            record.positions_2d_grad_norm.to_owned().mask_where(
+        record.positions_2d_grad_norm_sum =
+            record.positions_2d_grad_norm_sum.to_owned().mask_where(
                 is_visible.to_owned(),
                 record
-                    .positions_2d_grad_norm
+                    .positions_2d_grad_norm_sum
                     .to_owned()
                     .add(positions_2d_grad_norm.to_owned()),
             );
@@ -84,10 +87,16 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         // Densification
 
         if config.range_densification.has(self.iteration) {
+            #[cfg(debug_assertions)]
+            log::debug!(
+                target: "gausplat_trainer::train",
+                "Gaussian3dTrainer::refine > densification",
+            );
+
             // Computing the means of 2D position gradient norms
 
             let positions_2d_grad_norm_mean = record
-                .positions_2d_grad_norm
+                .positions_2d_grad_norm_sum
                 .to_owned()
                 .div(record.time.to_owned());
 
@@ -129,14 +138,14 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                     .squeeze::<1>(1)
                     .argwhere()
                     .squeeze(1);
-            let args_to_retain =
-                Tensor::cat(vec![is_opaque.to_owned(), is_in_or_small], 1)
+            let args_to_split =
+                Tensor::cat(vec![is_opaque.to_owned(), is_out_and_large], 1)
                     .all_dim(1)
                     .squeeze::<1>(1)
                     .argwhere()
                     .squeeze(1);
-            let args_to_split =
-                Tensor::cat(vec![is_opaque.to_owned(), is_out_and_large], 1)
+            let args_to_retain =
+                Tensor::cat(vec![is_opaque, is_in_or_small], 1)
                     .all_dim(1)
                     .squeeze::<1>(1)
                     .argwhere()
@@ -151,19 +160,26 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             // Densifying by splitting large points
 
             let mut points_splitted = points.to_owned().map(|p| {
-                p.select(0, args_to_split.to_owned()).repeat_dim(0, 3)
+                p.select(0, args_to_split.to_owned()).repeat_dim(0, 2)
             });
 
             let scalings_splitted =
                 Gaussian3dScene::make_scalings(points_splitted[4].to_owned());
 
-            points_splitted[2] = points_splitted[2].to_owned().add(
-                scalings_splitted
-                    .random_like(Distribution::Normal(0.0, 1.5))
-                    .mul(scalings_splitted.to_owned()),
+            points_splitted[1] = Gaussian3dScene::make_inner_opacities(
+                Gaussian3dScene::make_opacities(points_splitted[1].to_owned())
+                    .mul_scalar(0.5),
+            );
+            points_splitted[2] = Gaussian3dScene::make_inner_positions(
+                Gaussian3dScene::make_positions(points_splitted[2].to_owned())
+                    .add(
+                        scalings_splitted
+                            .random_like(Distribution::Normal(0.0, 1.5))
+                            .mul(scalings_splitted.to_owned()),
+                    ),
             );
             points_splitted[4] = Gaussian3dScene::make_inner_scalings(
-                scalings_splitted.div_scalar(2.0),
+                scalings_splitted.mul_scalar(0.5),
             );
             let points_splitted = points_splitted;
 
@@ -174,207 +190,80 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             // Updating the points
 
+            let make_points = |param_index: usize| {
+                Tensor::from_inner(Tensor::cat(
+                    vec![
+                        points_cloned[param_index].to_owned(),
+                        points_splitted[param_index].to_owned(),
+                        points_retained[param_index].to_owned(),
+                    ],
+                    0,
+                ))
+                .require_grad()
+            };
+
             self.scene
-                .set_inner_colors_sh(
-                    Tensor::from_inner(Tensor::cat(
-                        vec![
-                            points_cloned[0].to_owned(),
-                            points_splitted[0].to_owned(),
-                            points_retained[0].to_owned(),
-                        ],
-                        0,
-                    ))
-                    .require_grad(),
-                )
-                .set_inner_opacities(
-                    Tensor::from_inner(Tensor::cat(
-                        vec![
-                            points_cloned[1].to_owned(),
-                            points_splitted[1].to_owned(),
-                            points_retained[1].to_owned(),
-                        ],
-                        0,
-                    ))
-                    .require_grad(),
-                )
-                .set_inner_positions(
-                    Tensor::from_inner(Tensor::cat(
-                        vec![
-                            points_cloned[2].to_owned(),
-                            points_splitted[2].to_owned(),
-                            points_retained[2].to_owned(),
-                        ],
-                        0,
-                    ))
-                    .require_grad(),
-                )
-                .set_inner_rotations(
-                    Tensor::from_inner(Tensor::cat(
-                        vec![
-                            points_cloned[3].to_owned(),
-                            points_splitted[3].to_owned(),
-                            points_retained[3].to_owned(),
-                        ],
-                        0,
-                    ))
-                    .require_grad(),
-                )
-                .set_inner_scalings(
-                    Tensor::from_inner(Tensor::cat(
-                        vec![
-                            points_cloned[4].to_owned(),
-                            points_splitted[4].to_owned(),
-                            points_retained[4].to_owned(),
-                        ],
-                        0,
-                    ))
-                    .require_grad(),
-                );
+                .set_inner_colors_sh(make_points(0))
+                .set_inner_opacities(make_points(1))
+                .set_inner_positions(make_points(2))
+                .set_inner_rotations(make_points(3))
+                .set_inner_scalings(make_points(4));
 
             let point_count_selected =
                 points_cloned[0].dims()[0] + points_splitted[0].dims()[0];
+            let point_count_retained = points_retained[0].dims()[0];
+            let point_count_new = point_count_retained + point_count_selected;
 
             #[cfg(debug_assertions)]
-            log::debug!(
-                target: "gausplat_trainer::train",
-                "Gaussian3dTrainer::refine > densification > point_count_selected ({})",
-                point_count_selected,
-            );
+            {
+                log::debug!(
+                    target: "gausplat_trainer::train",
+                    "Gaussian3dTrainer::refine > densification > point_count ({}) -> ({}) = ({} + {})",
+                    point_count, point_count_new,
+                    point_count_selected, point_count_retained,
+                );
+            }
 
             // Updating the optimizer records
 
-            if let Some(record) = &mut self.optimizer_colors_sh.record {
-                let zeros_selected =
-                    Tensor::zeros([point_count_selected, 16 * 3], device);
-                record.moment_1 = Tensor::cat(
-                    vec![
-                        zeros_selected.to_owned(),
-                        record
-                            .moment_1
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-                record.moment_2 = Tensor::cat(
-                    vec![
-                        zeros_selected,
-                        record
-                            .moment_2
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-            }
-            if let Some(record) = &mut self.optimizer_opacities.record {
-                let zeros_selected =
-                    Tensor::zeros([point_count_selected, 1], device);
-                record.moment_1 = Tensor::cat(
-                    vec![
-                        zeros_selected.to_owned(),
-                        record
-                            .moment_1
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-                record.moment_2 = Tensor::cat(
-                    vec![
-                        zeros_selected,
-                        record
-                            .moment_2
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-            }
-            if let Some(record) = &mut self.optimizer_positions.record {
-                let zeros_selected =
-                    Tensor::zeros([point_count_selected, 3], device);
-                record.moment_1 = Tensor::cat(
-                    vec![
-                        zeros_selected.to_owned(),
-                        record
-                            .moment_1
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-                record.moment_2 = Tensor::cat(
-                    vec![
-                        zeros_selected,
-                        record
-                            .moment_2
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-            }
-            if let Some(record) = &mut self.optimizer_rotations.record {
-                let zeros_selected =
-                    Tensor::zeros([point_count_selected, 4], device);
-                record.moment_1 = Tensor::cat(
-                    vec![
-                        zeros_selected.to_owned(),
-                        record
-                            .moment_1
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-                record.moment_2 = Tensor::cat(
-                    vec![
-                        zeros_selected,
-                        record
-                            .moment_2
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-            }
-            if let Some(record) = &mut self.optimizer_scalings.record {
-                let zeros_selected =
-                    Tensor::zeros([point_count_selected, 3], device);
-                record.moment_1 = Tensor::cat(
-                    vec![
-                        zeros_selected.to_owned(),
-                        record
-                            .moment_1
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-                record.moment_2 = Tensor::cat(
-                    vec![
-                        zeros_selected,
-                        record
-                            .moment_2
-                            .to_owned()
-                            .select(0, args_to_retain.to_owned()),
-                    ],
-                    0,
-                );
-            }
+            let update_optimizer = |optimizer: &mut Adam<AB, 2>| {
+                if let Some(record) = &mut optimizer.record {
+                    let zeros_selected =
+                        Tensor::zeros([point_count_selected, 16 * 3], device);
+                    record.moment_1 = Tensor::cat(
+                        vec![
+                            zeros_selected.to_owned(),
+                            record
+                                .moment_1
+                                .to_owned()
+                                .select(0, args_to_retain.to_owned()),
+                        ],
+                        0,
+                    );
+                    record.moment_2 = Tensor::cat(
+                        vec![
+                            zeros_selected,
+                            record
+                                .moment_2
+                                .to_owned()
+                                .select(0, args_to_retain.to_owned()),
+                        ],
+                        0,
+                    );
+                }
+            };
+
+            update_optimizer(&mut self.optimizer_colors_sh);
+            update_optimizer(&mut self.optimizer_opacities);
+            update_optimizer(&mut self.optimizer_positions);
+            update_optimizer(&mut self.optimizer_rotations);
+            update_optimizer(&mut self.optimizer_scalings);
 
             // Resetting the record
 
-            let shape = [self.scene.colors_sh.val().dims()[0]];
-            record.positions_2d_grad_norm = Tensor::zeros(shape, device);
-            record.time = Tensor::zeros(shape, device);
-
-            #[cfg(debug_assertions)]
-            log::debug!(
-                target: "gausplat_trainer::train",
-                "Gaussian3dTrainer::refine > densification",
-            );
+            record.positions_2d_grad_norm_sum =
+                Tensor::zeros([point_count_new], device);
+            record.time = Tensor::zeros([point_count_new], device);
         }
 
         // Increasing the renderer option `colors_sh_degree_max`
