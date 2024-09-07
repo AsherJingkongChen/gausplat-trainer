@@ -2,13 +2,13 @@ pub use super::*;
 pub use burn::tensor::{Distribution, Int};
 
 #[derive(Clone, Debug)]
-pub struct Refinement<B: Backend> {
-    pub config: RefinementConfig,
-    pub record: RefinementRecord<B>,
+pub struct Refiner<B: Backend> {
+    pub config: RefinerConfig,
+    pub record: RefinerRecord<B>,
 }
 
 #[derive(Config, Debug)]
-pub struct RefinementConfig {
+pub struct RefinerConfig {
     #[config(default = "RangeOptions::new(500, 15000, 100)")]
     pub range_densification: RangeOptions,
 
@@ -21,24 +21,56 @@ pub struct RefinementConfig {
     #[config(default = 2e-4)]
     pub threshold_position_2d_grad_norm: f64,
 
-    #[config(default = 7.8e-2)]
+    #[config(default = 8e-2)]
     pub threshold_scaling: f64,
 }
 
-pub type RefinementRecord<B> = Option<RefinementState<B>>;
+pub type RefinerRecord<B> = Option<RefinerState<B>>;
 
 #[derive(Clone, Debug, Record)]
-pub struct RefinementState<B: Backend> {
+pub struct RefinerState<B: Backend> {
     pub positions_2d_grad_norm_sum: Tensor<B, 1>,
     pub time: Tensor<B, 1>,
 }
 
-impl RefinementConfig {
-    pub fn init<B: Backend>(&self) -> Refinement<B> {
-        Refinement {
+impl RefinerConfig {
+    pub fn init<B: Backend>(&self) -> Refiner<B> {
+        Refiner {
             config: self.to_owned(),
             record: None,
         }
+    }
+}
+
+impl<B: Backend> Refiner<B> {
+    pub fn to_device(
+        mut self,
+        device: &B::Device,
+    ) -> Self {
+        self.record = self.record.map(|mut record| {
+            record.positions_2d_grad_norm_sum =
+                record.positions_2d_grad_norm_sum.to_device(device);
+            record.time = record.time.to_device(device);
+            record
+        });
+
+        self
+    }
+
+    #[inline]
+    pub fn load_record(&mut self, record: RefinerRecord<B>) -> &mut Self {
+        self.record = record;
+        self
+    }
+
+    #[inline]
+    pub fn into_record(self) -> RefinerRecord<B> {
+        self.record
+    }
+
+    #[inline]
+    pub fn to_record(&self) -> RefinerRecord<B> {
+        self.record.to_owned()
     }
 }
 
@@ -53,13 +85,13 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         // Initializing the record
 
-        let config = &self.refinement.config;
+        let config = &self.refiner.config;
         let device = &radii.device();
         let point_count = radii.dims()[0];
         let record =
-            self.refinement
+            self.refiner
                 .record
-                .get_or_insert_with(|| RefinementState {
+                .get_or_insert_with(|| RefinerState {
                     positions_2d_grad_norm_sum: Tensor::zeros(
                         [point_count],
                         device,
@@ -132,6 +164,12 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                     .all_dim(1);
             let is_in_or_small = is_out_and_large.to_owned().bool_not();
             let is_small = is_large.to_owned().bool_not();
+            let args_to_retain =
+                Tensor::cat(vec![is_opaque.to_owned(), is_in_or_small], 1)
+                    .all_dim(1)
+                    .squeeze::<1>(1)
+                    .argwhere()
+                    .squeeze(1);
             let args_to_clone =
                 Tensor::cat(vec![is_opaque.to_owned(), is_out, is_small], 1)
                     .all_dim(1)
@@ -144,12 +182,12 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                     .squeeze::<1>(1)
                     .argwhere()
                     .squeeze(1);
-            let args_to_retain =
-                Tensor::cat(vec![is_opaque, is_in_or_small], 1)
-                    .all_dim(1)
-                    .squeeze::<1>(1)
-                    .argwhere()
-                    .squeeze(1);
+
+            // Retaining the points that are not selected
+
+            let points_retained = points
+                .to_owned()
+                .map(|p| p.select(0, args_to_retain.to_owned()));
 
             // Desifying by cloning small points
 
@@ -159,8 +197,8 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             // Densifying by splitting large points
 
-            let mut points_splitted = points.to_owned().map(|p| {
-                p.select(0, args_to_split.to_owned()).repeat_dim(0, 2)
+            let mut points_splitted = points.map(|p| {
+                p.select(0, args_to_split.to_owned()).repeat_dim(0, 3)
             });
 
             let scalings_splitted =
@@ -168,34 +206,29 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             points_splitted[1] = Gaussian3dScene::make_inner_opacities(
                 Gaussian3dScene::make_opacities(points_splitted[1].to_owned())
-                    .mul_scalar(0.5),
+                    .mul_scalar(0.7),
             );
             points_splitted[2] = Gaussian3dScene::make_inner_positions(
                 Gaussian3dScene::make_positions(points_splitted[2].to_owned())
                     .add(
                         scalings_splitted
-                            .random_like(Distribution::Normal(0.0, 1.5))
+                            .random_like(Distribution::Normal(0.0, 1.0))
                             .mul(scalings_splitted.to_owned()),
                     ),
             );
             points_splitted[4] = Gaussian3dScene::make_inner_scalings(
-                scalings_splitted.mul_scalar(0.5),
+                scalings_splitted.mul_scalar(0.7),
             );
             let points_splitted = points_splitted;
-
-            // Retaining the points that are not selected
-
-            let points_retained =
-                points.map(|p| p.select(0, args_to_retain.to_owned()));
 
             // Updating the points
 
             let make_points = |param_index: usize| {
                 Tensor::from_inner(Tensor::cat(
                     vec![
+                        points_retained[param_index].to_owned(),
                         points_cloned[param_index].to_owned(),
                         points_splitted[param_index].to_owned(),
-                        points_retained[param_index].to_owned(),
                     ],
                     0,
                 ))
@@ -209,18 +242,20 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .set_inner_rotations(make_points(3))
                 .set_inner_scalings(make_points(4));
 
-            let point_count_selected =
-                points_cloned[0].dims()[0] + points_splitted[0].dims()[0];
             let point_count_retained = points_retained[0].dims()[0];
+            let point_count_cloned = points_cloned[0].dims()[0];
+            let point_count_splitted = points_splitted[0].dims()[0];
+            let point_count_selected =
+                point_count_cloned + point_count_splitted;
             let point_count_new = point_count_retained + point_count_selected;
 
-            #[cfg(debug_assertions)]
+            // #[cfg(debug_assertions)]
             {
                 log::debug!(
                     target: "gausplat_trainer::train",
-                    "Gaussian3dTrainer::refine > densification > point_count ({}) -> ({}) = ({} + {})",
+                    "Gaussian3dTrainer::refine > densification > point_count ({}) -> ({}) = ({} + {} + {})",
                     point_count, point_count_new,
-                    point_count_selected, point_count_retained,
+                    point_count_retained, point_count_cloned, point_count_splitted,
                 );
             }
 
@@ -228,25 +263,30 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             let update_optimizer = |optimizer: &mut Adam<AB, 2>| {
                 if let Some(record) = &mut optimizer.record {
-                    let zeros_selected =
-                        Tensor::zeros([point_count_selected, 16 * 3], device);
+                    let dim_2d = record.moment_1.dims()[1];
                     record.moment_1 = Tensor::cat(
                         vec![
-                            zeros_selected.to_owned(),
                             record
                                 .moment_1
                                 .to_owned()
                                 .select(0, args_to_retain.to_owned()),
+                            Tensor::zeros(
+                                [point_count_selected, dim_2d],
+                                device,
+                            ),
                         ],
                         0,
                     );
                     record.moment_2 = Tensor::cat(
                         vec![
-                            zeros_selected,
                             record
                                 .moment_2
                                 .to_owned()
                                 .select(0, args_to_retain.to_owned()),
+                            Tensor::zeros(
+                                [point_count_selected, dim_2d],
+                                device,
+                            ),
                         ],
                         0,
                     );
@@ -288,7 +328,14 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
     }
 }
 
-impl Default for RefinementConfig {
+impl<AB: AutodiffBackend> Default for Refiner<AB> {
+    #[inline]
+    fn default() -> Self {
+        RefinerConfig::default().init()
+    }
+}
+
+impl Default for RefinerConfig {
     #[inline]
     fn default() -> Self {
         Self::new()

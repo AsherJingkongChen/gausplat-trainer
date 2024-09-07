@@ -5,9 +5,9 @@ use std::ops::{Deref, DerefMut, Div, Mul};
 /// A learning rate that can be a constant or exponentially decayed.
 #[derive(Clone, Debug)]
 pub struct LearningRate {
-    pub current: f64,
     pub decay: f64,
     pub end: f64,
+    pub record: LearningRateRecord,
 }
 
 /// A learning rate that can be a constant or exponentially decayed.
@@ -29,22 +29,27 @@ pub struct LearningRateRecord {
 
 impl LearningRate {
     pub fn update(&mut self) -> &mut Self {
-        self.current = self.current.mul(self.decay).max(self.end);
+        self.record.current = self.record.current.mul(self.decay).max(self.end);
         self
     }
 
+    #[inline]
     pub fn load_record(
         &mut self,
         record: LearningRateRecord,
     ) -> &mut Self {
-        self.current = record.current;
+        self.record = record;
         self
     }
 
+    #[inline]
+    pub fn into_record(self) -> LearningRateRecord {
+        self.record
+    }
+
+    #[inline]
     pub fn to_record(&self) -> LearningRateRecord {
-        LearningRateRecord {
-            current: self.current,
-        }
+        self.record.to_owned()
     }
 }
 
@@ -55,11 +60,15 @@ impl LearningRateConfig {
         } else {
             self.count as f64
         };
+        let decay = self.end.div(self.start).powf(count.recip());
+        let record = LearningRateRecord {
+            current: self.start,
+        };
 
         LearningRate {
-            current: self.start,
-            decay: self.end.div(self.start).powf(count.recip()),
+            decay,
             end: self.end,
+            record,
         }
     }
 }
@@ -83,14 +92,14 @@ impl Deref for LearningRate {
 
     #[inline]
     fn deref(&self) -> &Self::Target {
-        &self.current
+        &self.record.current
     }
 }
 
 impl DerefMut for LearningRate {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.current
+        &mut self.record.current
     }
 }
 
@@ -117,14 +126,14 @@ mod tests {
         let config = LearningRateConfig::default();
         let mut lr = config.init();
 
-        assert_eq!(lr.current, config.start);
+        assert_eq!(lr.record.current, config.start);
         assert_eq!(lr.decay, 1.0);
         assert_eq!(lr.end, 0.0);
 
         lr.update();
         lr.update();
 
-        assert_eq!(lr.current, config.start);
+        assert_eq!(lr.record.current, config.start);
         assert_eq!(lr.decay, 1.0);
         assert_eq!(lr.end, 0.0);
     }
@@ -149,7 +158,7 @@ mod tests {
     }
 
     #[test]
-    fn update() {
+    fn update_to_end() {
         use super::*;
 
         let mut lr = LearningRateConfig::new(1e-1)
@@ -161,6 +170,6 @@ mod tests {
             lr.update();
         });
 
-        assert_eq!(lr.current, 1e-5);
+        assert_eq!(*lr, 1e-5);
     }
 }

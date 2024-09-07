@@ -124,13 +124,6 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         Tensor::from_inner(value).set_require_grad(is_require_grad)
     }
 
-    /// ## Arguments
-    ///
-    /// * `device` - The target device.
-    ///
-    /// ## Returns
-    ///
-    /// The optimizer moved to the device.
     pub fn to_device(
         mut self,
         device: &AB::Device,
@@ -142,6 +135,25 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         });
 
         self
+    }
+
+    #[inline]
+    pub fn load_record(
+        &mut self,
+        record: AdamRecord<AB, D>,
+    ) -> &mut Self {
+        self.record = record;
+        self
+    }
+
+    #[inline]
+    pub fn into_record(self) -> AdamRecord<AB, D> {
+        self.record
+    }
+
+    #[inline]
+    pub fn to_record(&self) -> AdamRecord<AB, D> {
+        self.record.to_owned()
     }
 }
 

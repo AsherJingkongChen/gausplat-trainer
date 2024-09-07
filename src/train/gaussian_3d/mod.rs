@@ -36,9 +36,13 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub optimizer_rotations: Adam<AB, 2>,
     pub optimizer_scalings: Adam<AB, 2>,
     pub options_renderer: Gaussian3dRendererOptions,
-    pub refinement: Refinement<AB::InnerBackend>,
+    pub refiner: Refiner<AB::InnerBackend>,
     pub scene: Gaussian3dScene<AB>,
 }
+
+// #[derive(Clone, Debug, Record)]
+// pub struct Gaussian3dTrainerRecord<B: Backend> {
+// }
 
 impl<B: Backend> Gaussian3dTrainer<Autodiff<B>>
 where
@@ -101,9 +105,6 @@ where
 }
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
-    // pub fn load_record(&mut self, record: &Record) -> &mut Self {
-    // pub fn to_record(&self) -> Record {
-
     pub fn to_device(
         mut self,
         device: &AB::Device,
@@ -117,6 +118,10 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         self
     }
+
+    // pub fn load_record(&mut self, record: Gaussian3dTrainerRecord) -> &mut Self {}
+    // pub fn into_record(self) -> Gaussian3dTrainerRecord {}
+    // pub fn to_record(&self) -> Gaussian3dTrainerRecord {}
 }
 
 impl<AB: AutodiffBackend> Default for Gaussian3dTrainer<AB> {

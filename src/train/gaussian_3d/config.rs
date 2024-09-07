@@ -20,14 +20,14 @@ pub struct Gaussian3dTrainerConfig {
     #[config(default = "5e-3.into()")]
     pub learning_rate_scalings: LearningRateConfig,
 
-    #[config(default = "AdamConfig::default().with_epsilon(1e-15)")]
+    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
     pub optimizer_adam: AdamConfig,
 
-    #[config(default = "Default::default()")]
+    #[config(default = "Gaussian3dRendererOptions::new().with_colors_sh_degree_max(0)")]
     pub options_renderer: Gaussian3dRendererOptions,
 
     #[config(default = "Default::default()")]
-    pub refinement: RefinementConfig,
+    pub refiner: RefinerConfig,
 }
 
 impl Gaussian3dTrainerConfig {
@@ -51,7 +51,7 @@ impl Gaussian3dTrainerConfig {
             optimizer_scalings: self.optimizer_adam.init(),
             options_renderer: self.options_renderer.to_owned(),
             scene: Gaussian3dScene::init(device, priors),
-            refinement: self.refinement.init(),
+            refiner: self.refiner.init(),
         }
     }
 }
