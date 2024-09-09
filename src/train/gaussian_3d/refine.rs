@@ -58,7 +58,10 @@ impl<B: Backend> Refiner<B> {
     }
 
     #[inline]
-    pub fn load_record(&mut self, record: RefinerRecord<B>) -> &mut Self {
+    pub fn load_record(
+        &mut self,
+        record: RefinerRecord<B>,
+    ) -> &mut Self {
         self.record = record;
         self
     }
@@ -88,16 +91,10 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         let config = &self.refiner.config;
         let device = &radii.device();
         let point_count = radii.dims()[0];
-        let record =
-            self.refiner
-                .record
-                .get_or_insert_with(|| RefinerState {
-                    positions_2d_grad_norm_sum: Tensor::zeros(
-                        [point_count],
-                        device,
-                    ),
-                    time: Tensor::zeros([point_count], device),
-                });
+        let record = self.refiner.record.get_or_insert_with(|| RefinerState {
+            positions_2d_grad_norm_sum: Tensor::zeros([point_count], device),
+            time: Tensor::zeros([point_count], device),
+        });
 
         // Updating the record
 

@@ -23,7 +23,9 @@ pub struct Gaussian3dTrainerConfig {
     #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
     pub optimizer_adam: AdamConfig,
 
-    #[config(default = "Gaussian3dRendererOptions::new().with_colors_sh_degree_max(0)")]
+    #[config(
+        default = "Gaussian3dRendererOptions::new().with_colors_sh_degree_max(0)"
+    )]
     pub options_renderer: Gaussian3dRendererOptions,
 
     #[config(default = "Default::default()")]
