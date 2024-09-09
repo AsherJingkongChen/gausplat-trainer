@@ -17,7 +17,7 @@ pub use optimize::*;
 pub use range::*;
 pub use refine::*;
 
-use crate::function::*;
+use crate::{function::*, metric::Metric};
 use gausplat_renderer::preset::spherical_harmonics::SH_DEGREE_MAX;
 use std::ops::Add;
 
@@ -74,7 +74,7 @@ where
 
         let loss = self
             .metric_optimization
-            .forward(output.colors_rgb_2d, colors_rgb_2d);
+            .evaluate(output.colors_rgb_2d, colors_rgb_2d);
 
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > loss");
