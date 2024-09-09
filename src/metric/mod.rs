@@ -9,14 +9,14 @@ pub use mssim::*;
 pub use burn::tensor::{backend::Backend, Tensor};
 
 pub trait Metric<B: Backend> {
-    /// Evaluate the values against the target.
+    /// Evaluate the value against the target.
     ///
     /// ## Returns
     ///
     /// The metric value with shape `[1]`.
     fn evaluate<const D: usize>(
         &self,
-        values: Tensor<B, D>,
+        value: Tensor<B, D>,
         target: Tensor<B, D>,
     ) -> Tensor<B, 1>;
 }

@@ -21,10 +21,10 @@ impl<B: Backend> Metric<B> for MeanAbsoluteError {
     #[inline]
     fn evaluate<const D: usize>(
         &self,
-        values: Tensor<B, D>,
+        value: Tensor<B, D>,
         target: Tensor<B, D>,
     ) -> Tensor<B, 1> {
-        values.sub(target).abs().mean()
+        value.sub(target).abs().mean()
     }
 }
 

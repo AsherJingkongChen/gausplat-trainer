@@ -3,7 +3,7 @@ pub mod optimize;
 pub mod range;
 pub mod refine;
 
-pub use crate::metric::MeanAbsoluteError;
+pub use crate::metric;
 pub use burn::{
     config::Config, module::AutodiffModule, tensor::backend::AutodiffBackend,
 };
@@ -29,7 +29,7 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub learning_rate_positions: LearningRate,
     pub learning_rate_rotations: LearningRate,
     pub learning_rate_scalings: LearningRate,
-    pub metric_optimization: MeanAbsoluteError,
+    pub metric_optimization: metric::MeanAbsoluteError,
     pub optimizer_colors_sh: Adam<AB, 2>,
     pub optimizer_opacities: Adam<AB, 2>,
     pub optimizer_positions: Adam<AB, 2>,
@@ -72,9 +72,10 @@ where
         )
         .expect("The image error should be handled in `gausplat-importer`");
 
-        let loss = self
-            .metric_optimization
-            .evaluate(output.colors_rgb_2d, colors_rgb_2d);
+        let loss = self.metric_optimization.evaluate(
+            output.colors_rgb_2d.movedim(2, 0),
+            colors_rgb_2d.movedim(2, 0),
+        );
 
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > loss");

@@ -33,11 +33,10 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
         // σ^2
         const WEIGHT_STD2: f64 = WEIGHT_STD * WEIGHT_STD;
 
-        let padding = WEIGHT_SIZE_HALF;
         let mut filter = conv::Conv2dConfig::new([C; 2], [WEIGHT_SIZE; 2])
             .with_bias(false)
             .with_groups(C)
-            .with_padding(PaddingConfig2d::Explicit(padding, padding))
+            .with_padding(PaddingConfig2d::Valid)
             .init(device);
 
         // [C, 1, G, G]
@@ -68,7 +67,7 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
                     .set_require_grad(is_required_grad)
             },
             device.to_owned(),
-            true,
+            false,
         );
 
         Self { filter }
@@ -76,12 +75,17 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
 }
 
 impl<B: Backend, const C: usize> Metric<B> for MeanStructuralSimilarity<B, C> {
+    /// ## Arguments
+    ///
+    /// * `value`: The input tensor with shape `[N?, C?, H, W]`.
+    /// * `target`: The target tensor with shape `[N?, C?, H, W]`.
+    ///
     /// ## Returns
-    /// 
+    ///
     /// The mean of structural similarity index (MSSIM) with shape `[1]`.
     fn evaluate<const D: usize>(
         &self,
-        values: Tensor<B, D>,
+        value: Tensor<B, D>,
         target: Tensor<B, D>,
     ) -> Tensor<B, 1> {
         const K1: f64 = 0.01;
@@ -92,26 +96,28 @@ impl<B: Backend, const C: usize> Metric<B> for MeanStructuralSimilarity<B, C> {
         const FRAC_C1_2: f64 = C1 / 2.0;
         const FRAC_C2_2: f64 = C2 / 2.0;
 
-        let input = (values.unsqueeze::<4>(), target.unsqueeze::<4>());
+        let input = (
+            value.unsqueeze::<4>().expand([-1, C as i64, -1, -1]),
+            target.unsqueeze::<4>().expand([-1, C as i64, -1, -1]),
+        );
 
         debug_assert_eq!(input.0.dims(), input.1.dims());
-        debug_assert_eq!(input.0.dims()[1], C);
 
-        // F(x) = sum(weight * x)
+        // F(x) = sum(w[G, G] * x[H, W])
         let filter = &self.filter;
-        // m0 = F(x0)
-        // m1 = F(x1)
+        // μ0 = F(x0)
+        // μ1 = F(x1)
         let mean = (
             filter.forward(input.0.to_owned()),
             filter.forward(input.1.to_owned()),
         );
-        // m0^2 = m0 * m0
-        // m1^2 = m1 * m1
+        // μ0^2 = μ0 * μ0
+        // μ1^2 = μ1 * μ1
         let mean2 = (
             mean.0.to_owned().powf_scalar(2.0),
             mean.1.to_owned().powf_scalar(2.0),
         );
-        // s0^2 = F(x0^2) - m0^2
+        // σ0^2 = F(x0^2) - μ0^2
         let std2 = (
             filter
                 .forward(input.0.to_owned().powf_scalar(2.0))
@@ -120,12 +126,12 @@ impl<B: Backend, const C: usize> Metric<B> for MeanStructuralSimilarity<B, C> {
                 .forward(input.1.to_owned().powf_scalar(2.0))
                 .sub(mean2.1.to_owned()),
         );
-        // m_01 = m0 * m1
+        // μ01 = μ0 * μ1
         let mean_01 = mean.0 * mean.1;
-        // s_01 = F(x0 * x1) - m_01
+        // σ01 = F(x0 * x1) - μ01
         let std_01 = filter.forward(input.0 * input.1) - mean_01.to_owned();
-        // I(x0, x1) = (2 * m_01 + C1) * (2 * s_01 + C2) /
-        //             ((m0^2 + m1^2 + C1) * (s0^2 + s1^2 + C2))
+        // I(x0, x1) = (2 * μ01 + C1) * (2 * σ01 + C2) /
+        //             ((μ0^2 + μ1^2 + C1) * (σ0^2 + σ1^2 + C2))
         let indexes = (mean_01 + FRAC_C1_2) * (std_01 + FRAC_C2_2) * 4.0
             / ((mean2.0 + mean2.1 + C1) * (std2.0 + std2.1 + C2));
         // MI(x0, x1) = mean(I(x0, x1))
