@@ -67,28 +67,36 @@ mod tests {
         let metric =
             MeanStructuralDissimilarity::<NdArray<f32>, 3>::init(&device);
 
-        let input_0 = Tensor::zeros([1, 3, 256, 256], &device);
-        let input_1 = Tensor::zeros([1, 3, 256, 256], &device);
+        let input_0 = Tensor::zeros([1, 3, 36, 36], &device);
+        let input_1 = Tensor::zeros([1, 3, 36, 36], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert_eq!(score, 0.0);
 
-        let input_0 = Tensor::ones([1, 3, 256, 256], &device);
-        let input_1 = Tensor::ones([1, 3, 256, 256], &device);
+        let input_0 = Tensor::ones([1, 3, 36, 36], &device);
+        let input_1 = Tensor::ones([1, 3, 36, 36], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert_eq!(score, 0.0);
 
-        let input_0 = Tensor::zeros([1, 3, 256, 256], &device);
-        let input_1 = Tensor::ones([1, 3, 256, 256], &device);
+        let input_0 = Tensor::zeros([1, 3, 36, 36], &device);
+        let input_1 = Tensor::ones([1, 3, 36, 36], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert!(score < 0.5001 && score > 0.4999, "score: {:?}", score);
 
         let input_0 = Tensor::random(
-            [1, 3, 256, 256],
+            [1, 3, 36, 36],
             Distribution::Uniform(0.01, 0.99),
             &device,
         );
         let input_1 = input_0.to_owned().neg().add_scalar(1.0);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert!(score > 0.5, "score: {:?}", score);
+    }
+
+    #[test]
+    fn default() {
+        use super::*;
+        use burn::backend::NdArray;
+
+        MeanStructuralDissimilarity::<NdArray<f32>, 3>::default();
     }
 }

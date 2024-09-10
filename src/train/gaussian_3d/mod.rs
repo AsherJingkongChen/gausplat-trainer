@@ -7,21 +7,25 @@ pub use crate::metric;
 pub use burn::{
     config::Config,
     record::Record,
-    tensor::{backend::AutodiffBackend, Tensor},
+    tensor::{
+        backend::{AutodiffBackend, Backend},
+        Tensor,
+    },
 };
 pub use config::*;
 pub use gausplat_importer::dataset::gaussian_3d::{Camera, Image};
 pub use gausplat_renderer::scene::gaussian_3d::{
-    backend::Autodiff, render::Gaussian3dRendererOptions, Backend,
-    Gaussian3dRenderer, Gaussian3dScene, Gaussian3dSceneRecord, Module,
+    backend::*,
+    render::{Gaussian3dRenderer, Gaussian3dRendererOptions},
+    Gaussian3dScene,
 };
 pub use optimize::*;
 pub use range::*;
 pub use refine::*;
 
-use crate::{function::*, metric::Metric};
+use crate::function::*;
 use gausplat_renderer::preset::spherical_harmonics::SH_DEGREE_MAX;
-use std::ops::Add;
+use metric::Metric;
 
 #[derive(Clone, Debug)]
 pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
@@ -31,16 +35,16 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub learning_rate_positions: LearningRate,
     pub learning_rate_rotations: LearningRate,
     pub learning_rate_scalings: LearningRate,
-    pub metric_optimization_1: metric::MeanAbsoluteError,
-    pub metric_optimization_2: metric::MeanStructuralDissimilarity<AB, 3>,
+    pub metric_optimization_coarse: metric::MeanAbsoluteError,
+    pub metric_optimization_fine: metric::MeanStructuralDissimilarity<AB, 3>,
     pub optimizer_colors_sh: Adam<AB, 2>,
     pub optimizer_opacities: Adam<AB, 2>,
     pub optimizer_positions: Adam<AB, 2>,
     pub optimizer_rotations: Adam<AB, 2>,
     pub optimizer_scalings: Adam<AB, 2>,
     pub options_renderer: Gaussian3dRendererOptions,
+    pub range_optimization_fine: RangeOptions,
     pub refiner: Refiner<AB::InnerBackend>,
-    // pub scene: Gaussian3dScene<AB>,
 }
 
 #[derive(Clone, Debug, Record)]
@@ -188,5 +192,20 @@ impl<AB: AutodiffBackend> Default for Gaussian3dTrainer<AB> {
     #[inline]
     fn default() -> Self {
         Gaussian3dTrainerConfig::default().init(&Default::default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn default() {
+        use super::*;
+
+        Adam::<Autodiff<Wgpu>, 2>::default();
+        Gaussian3dTrainer::<Autodiff<Wgpu>>::default();
+        Refiner::<Autodiff<Wgpu>>::default();
+
+        let _ = *LearningRate::from(f64::default());
+        let _ = *(&mut LearningRate::default());
     }
 }

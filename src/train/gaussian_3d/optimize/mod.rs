@@ -64,20 +64,17 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         colors_rgb_2d_value: Tensor<AB, 3>,
         colors_rgb_2d_target: Tensor<AB, 3>,
     ) -> Tensor<AB, 1> {
-        // NOTE: To reduce the computational cost, the second metric is not always computed.
-        const ITER_STEP_OPTIMIZATION_2: u64 = 10;
-
         let colors_rgb_2d_value = colors_rgb_2d_value.movedim(2, 0);
         let colors_rgb_2d_target = colors_rgb_2d_target.movedim(2, 0);
 
-        let mut loss = self.metric_optimization_1.evaluate(
+        let mut loss = self.metric_optimization_coarse.evaluate(
             colors_rgb_2d_value.to_owned(),
             colors_rgb_2d_target.to_owned(),
         );
 
-        if self.iteration % ITER_STEP_OPTIMIZATION_2 == 0 {
+        if self.range_optimization_fine.has(self.iteration) {
             loss = loss.add(
-                self.metric_optimization_2
+                self.metric_optimization_fine
                     .evaluate(colors_rgb_2d_value, colors_rgb_2d_target),
             );
         }

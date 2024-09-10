@@ -36,7 +36,7 @@ mod tests {
         use burn::backend::NdArray;
 
         let device = Default::default();
-        let metric = MeanAbsoluteError;
+        let metric = MeanAbsoluteError::init();
 
         let input_0 = Tensor::<NdArray, 4>::zeros([1, 3, 256, 256], &device);
         let input_1 = Tensor::<NdArray, 4>::zeros([1, 3, 256, 256], &device);

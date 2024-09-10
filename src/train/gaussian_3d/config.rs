@@ -19,13 +19,16 @@ pub struct Gaussian3dTrainerConfig {
     #[config(default = "5e-3.into()")]
     pub learning_rate_scalings: LearningRateConfig,
 
-    #[config(default = "AdamConfig::new().with_epsilon(1e-15)")]
+    #[config(default = "AdamConfig::default().with_epsilon(1e-15)")]
     pub optimizer_adam: AdamConfig,
 
     #[config(
-        default = "Gaussian3dRendererOptions::new().with_colors_sh_degree_max(0)"
+        default = "Gaussian3dRendererOptions::default().with_colors_sh_degree_max(0)"
     )]
     pub options_renderer: Gaussian3dRendererOptions,
+
+    #[config(default = "RangeOptions::default_with_step(10)")]
+    pub range_optimization_fine: RangeOptions,
 
     #[config(default = "Default::default()")]
     pub refiner: RefinerConfig,
@@ -43,8 +46,8 @@ impl Gaussian3dTrainerConfig {
             learning_rate_positions: self.learning_rate_positions.init(),
             learning_rate_rotations: self.learning_rate_rotations.init(),
             learning_rate_scalings: self.learning_rate_scalings.init(),
-            metric_optimization_1: metric::MeanAbsoluteError::init(),
-            metric_optimization_2: metric::MeanStructuralDissimilarity::init(
+            metric_optimization_coarse: metric::MeanAbsoluteError::init(),
+            metric_optimization_fine: metric::MeanStructuralDissimilarity::init(
                 device,
             ),
             optimizer_colors_sh: self.optimizer_adam.init(),
@@ -53,6 +56,7 @@ impl Gaussian3dTrainerConfig {
             optimizer_rotations: self.optimizer_adam.init(),
             optimizer_scalings: self.optimizer_adam.init(),
             options_renderer: self.options_renderer.to_owned(),
+            range_optimization_fine: self.range_optimization_fine.to_owned(),
             refiner: self.refiner.init(),
         }
     }

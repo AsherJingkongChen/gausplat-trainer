@@ -1,6 +1,8 @@
 pub use super::*;
 pub use burn::tensor::{Distribution, Int};
 
+use std::ops::Add;
+
 #[derive(Clone, Debug)]
 pub struct Refiner<B: Backend> {
     pub config: RefinerConfig,
