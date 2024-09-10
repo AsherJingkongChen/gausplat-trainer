@@ -21,7 +21,7 @@ pub struct RefinerConfig {
     #[config(default = "2e-4")]
     pub threshold_position_2d_grad_norm: f64,
 
-    #[config(default = "8e-2")]
+    #[config(default = "4e-2")]
     pub threshold_scaling: f64,
 }
 
@@ -83,6 +83,11 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         positions_2d_grad_norm: Tensor<AB::InnerBackend, 1>,
         radii: Tensor<AB::InnerBackend, 1, Int>,
     ) -> &mut Self {
+        // NOTE: The following factors are difficult to tune.
+        const FACTOR_DEVIATION: f64 = 1.41;
+        const FACTOR_SCALING_HUGE: f64 = 20.0;
+        const FACTOR_SPLITTING: f64 = 0.71;
+
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::refine");
 
@@ -108,10 +113,10 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                     .to_owned()
                     .add(positions_2d_grad_norm.to_owned()),
             );
-        record.time = record.time.to_owned().mask_where(
-            is_visible.to_owned(),
-            record.time.to_owned().add_scalar(1.0),
-        );
+        record.time = record
+            .time
+            .to_owned()
+            .mask_where(is_visible, record.time.to_owned().add_scalar(1.0));
 
         // Densification
 
@@ -121,13 +126,6 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 target: "gausplat_trainer::train",
                 "Gaussian3dTrainer::refine > densification",
             );
-
-            // Computing the means of 2D position gradient norms
-
-            let positions_2d_grad_norm_mean = record
-                .positions_2d_grad_norm_sum
-                .to_owned()
-                .div(record.time.to_owned());
 
             // Obtaining the points
 
@@ -139,15 +137,23 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 self.scene.scalings.val().inner(),
             ];
 
+            // Specifying the parameters
+
+            let positions_2d_grad_norm_mean = record
+                .positions_2d_grad_norm_sum
+                .to_owned()
+                .div(record.time.to_owned());
+
+            let scalings_max =
+                self.scene.scalings().inner().to_owned().max_dim(1);
+
             // Checking the points
 
-            let is_large = self
-                .scene
-                .scalings()
-                .inner()
+            let is_large = scalings_max
                 .to_owned()
-                .max_dim(1)
                 .greater_elem(config.threshold_scaling);
+            let is_not_huge = scalings_max
+                .lower_elem(config.threshold_scaling * FACTOR_SCALING_HUGE);
             let is_opaque = self
                 .scene
                 .opacities()
@@ -161,12 +167,14 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                     .all_dim(1);
             let is_in_or_small = is_out_and_large.to_owned().bool_not();
             let is_small = is_large.to_owned().bool_not();
-            let args_to_retain =
-                Tensor::cat(vec![is_opaque.to_owned(), is_in_or_small], 1)
-                    .all_dim(1)
-                    .squeeze::<1>(1)
-                    .argwhere()
-                    .squeeze(1);
+            let args_to_retain = Tensor::cat(
+                vec![is_opaque.to_owned(), is_in_or_small, is_not_huge],
+                1,
+            )
+            .all_dim(1)
+            .squeeze::<1>(1)
+            .argwhere()
+            .squeeze(1);
             let args_to_clone =
                 Tensor::cat(vec![is_opaque.to_owned(), is_out, is_small], 1)
                     .all_dim(1)
@@ -200,21 +208,26 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             let scalings_splitted =
                 Gaussian3dScene::make_scalings(points_splitted[4].to_owned());
-
+            // Decreasing the opacity
             points_splitted[1] = Gaussian3dScene::make_inner_opacities(
                 Gaussian3dScene::make_opacities(points_splitted[1].to_owned())
-                    .mul_scalar(0.7),
+                    .mul_scalar(FACTOR_SPLITTING),
             );
+            // Moving the position randomly
             points_splitted[2] = Gaussian3dScene::make_inner_positions(
                 Gaussian3dScene::make_positions(points_splitted[2].to_owned())
                     .add(
                         scalings_splitted
-                            .random_like(Distribution::Normal(0.0, 1.0))
+                            .random_like(Distribution::Normal(
+                                0.0,
+                                FACTOR_DEVIATION,
+                            ))
                             .mul(scalings_splitted.to_owned()),
                     ),
             );
+            // Decreasing the scaling
             points_splitted[4] = Gaussian3dScene::make_inner_scalings(
-                scalings_splitted.mul_scalar(0.7),
+                scalings_splitted.mul_scalar(FACTOR_SPLITTING),
             );
             let points_splitted = points_splitted;
 
