@@ -62,4 +62,30 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         self
     }
+
+    pub fn loss(
+        &self,
+        colors_rgb_2d_value: Tensor<AB, 3>,
+        colors_rgb_2d_target: Tensor<AB, 3>,
+    ) -> Tensor<AB, 1> {
+        let colors_rgb_2d_value = colors_rgb_2d_value.movedim(2, 0);
+        let colors_rgb_2d_target = colors_rgb_2d_target.movedim(2, 0);
+
+        let mut loss = self.metric_optimization_1.evaluate(
+            colors_rgb_2d_value.to_owned(),
+            colors_rgb_2d_target.to_owned(),
+        );
+
+        if self.iteration % 10 == 0 {
+            loss = loss.add(
+                self.metric_optimization_2
+                    .evaluate(colors_rgb_2d_value, colors_rgb_2d_target),
+            );
+        }
+
+        #[cfg(debug_assertions)]
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::loss");
+
+        loss
+    }
 }

@@ -1,8 +1,10 @@
 pub mod mae;
+pub mod mdssim;
 pub mod mse;
 pub mod mssim;
 
 pub use mae::*;
+pub use mdssim::*;
 pub use mse::*;
 pub use mssim::*;
 

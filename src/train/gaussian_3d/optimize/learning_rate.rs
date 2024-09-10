@@ -14,10 +14,10 @@ pub struct LearningRate {
 #[derive(Config, Debug)]
 pub struct LearningRateConfig {
     // The max count to update the learning rate.
-    #[config(default = 0)]
+    #[config(default = "0")]
     pub count: u64,
 
-    #[config(default = 0.0)]
+    #[config(default = "0.0")]
     pub end: f64,
     pub start: f64,
 }

@@ -34,15 +34,15 @@ pub struct Adam<AB: AutodiffBackend, const D: usize> {
 #[derive(Config, Debug)]
 pub struct AdamConfig {
     /// The coefficient used for computing running average of gradient.
-    #[config(default = 0.9)]
+    #[config(default = "0.9")]
     pub beta_1: f64,
 
     /// The coefficient used for computing running average of squared gradient.
-    #[config(default = 0.999)]
+    #[config(default = "0.999")]
     pub beta_2: f64,
 
     /// A value added to the denominator to improve numerical stability.
-    #[config(default = 1e-8)]
+    #[config(default = "1e-8")]
     pub epsilon: f64,
 
     /// L2 penalty.

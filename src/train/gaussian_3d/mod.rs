@@ -29,7 +29,8 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub learning_rate_positions: LearningRate,
     pub learning_rate_rotations: LearningRate,
     pub learning_rate_scalings: LearningRate,
-    pub metric_optimization: metric::MeanAbsoluteError,
+    pub metric_optimization_1: metric::MeanAbsoluteError,
+    pub metric_optimization_2: metric::MeanStructuralDissimilarity<AB, 3>,
     pub optimizer_colors_sh: Adam<AB, 2>,
     pub optimizer_opacities: Adam<AB, 2>,
     pub optimizer_positions: Adam<AB, 2>,
@@ -57,7 +58,7 @@ where
         #[cfg(debug_assertions)]
         log::debug!(
             target: "gausplat_trainer::train",
-            "Gaussian3dTrainer::train > {}",
+            "Gaussian3dTrainer::train > iteration {}",
             self.iteration,
         );
 
@@ -66,21 +67,15 @@ where
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > output");
 
-        let colors_rgb_2d = get_tensor_from_image(
+        let colors_rgb_2d_target = get_tensor_from_image(
             &camera.image,
             &output.colors_rgb_2d.device(),
         )
         .expect("The image error should be handled in `gausplat-importer`");
 
-        let loss = self.metric_optimization.evaluate(
-            output.colors_rgb_2d.movedim(2, 0),
-            colors_rgb_2d.movedim(2, 0),
-        );
-
-        #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > loss");
-
-        let grads = &mut loss.backward();
+        let grads = &mut self
+            .loss(output.colors_rgb_2d, colors_rgb_2d_target)
+            .backward();
 
         let positions_2d_grad_norm =
             output.positions_2d_grad_norm_ref.grad_remove(grads);

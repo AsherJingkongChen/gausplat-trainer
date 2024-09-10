@@ -16,7 +16,6 @@ use burn::{
 ///
 /// * `self.filter.weight`: A normalized gaussian filter
 ///   with shape of `[C, 1, 11, 11]` and the standard deviation of `1.5`
-///
 #[derive(Clone, Debug)]
 pub struct MeanStructuralSimilarity<B: Backend, const C: usize> {
     pub filter: conv::Conv2d<B>,
@@ -83,6 +82,11 @@ impl<B: Backend, const C: usize> Metric<B> for MeanStructuralSimilarity<B, C> {
     /// ## Returns
     ///
     /// The mean of structural similarity index (MSSIM) with shape `[1]`.
+    ///
+    /// ## Details
+    ///
+    /// * The argument value should range from `0.0` to `1.0`
+    /// * The result value ranges from `-1.0` to `1.0`
     fn evaluate<const D: usize>(
         &self,
         value: Tensor<B, D>,
@@ -151,7 +155,7 @@ mod tests {
     #[test]
     fn evaluate() {
         use super::*;
-        use burn::backend::NdArray;
+        use burn::{backend::NdArray, tensor::Distribution};
 
         let device = Default::default();
         let metric = MeanStructuralSimilarity::<NdArray<f32>, 3>::init(&device);
@@ -169,7 +173,15 @@ mod tests {
         let input_0 = Tensor::zeros([1, 3, 256, 256], &device);
         let input_1 = Tensor::ones([1, 3, 256, 256], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
-        assert!(score < 1e-4);
-        assert_ne!(score, 0.0);
+        assert!(score > 0.0 && score < 1e-4, "score: {:?}", score);
+
+        let input_0 = Tensor::random(
+            [1, 3, 256, 256],
+            Distribution::Uniform(0.01, 0.99),
+            &device,
+        );
+        let input_1 = input_0.to_owned().neg().add_scalar(1.0);
+        let score = metric.evaluate(input_0, input_1).into_scalar();
+        assert!(score < 0.0, "score: {:?}", score);
     }
 }

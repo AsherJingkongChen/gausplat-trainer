@@ -15,13 +15,13 @@ pub struct RefinerConfig {
     #[config(default = "RangeOptions::new(1000, 4000, 1000)")]
     pub range_increasing_colors_sh_degree_max: RangeOptions,
 
-    #[config(default = 5e-3)]
+    #[config(default = "0.5 / 255.0")]
     pub threshold_opacity: f64,
 
-    #[config(default = 2e-4)]
+    #[config(default = "2e-4")]
     pub threshold_position_2d_grad_norm: f64,
 
-    #[config(default = 8e-2)]
+    #[config(default = "8e-2")]
     pub threshold_scaling: f64,
 }
 
@@ -195,7 +195,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             // Densifying by splitting large points
 
             let mut points_splitted = points.map(|p| {
-                p.select(0, args_to_split.to_owned()).repeat_dim(0, 3)
+                p.select(0, args_to_split.to_owned()).repeat_dim(0, 2)
             });
 
             let scalings_splitted =

@@ -7,6 +7,13 @@ pub use super::*;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct MeanSquareError;
 
+impl MeanSquareError {
+    #[inline]
+    pub fn init() -> Self {
+        Self
+    }
+}
+
 impl<B: Backend> Metric<B> for MeanSquareError {
     /// ## Returns
     ///
