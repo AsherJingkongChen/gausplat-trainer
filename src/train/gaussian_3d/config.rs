@@ -1,5 +1,4 @@
 pub use super::*;
-pub use gausplat_importer::dataset::gaussian_3d::{Point, Points};
 
 #[derive(Config, Debug)]
 pub struct Gaussian3dTrainerConfig {
@@ -36,7 +35,6 @@ impl Gaussian3dTrainerConfig {
     pub fn init<AB: AutodiffBackend>(
         &self,
         device: &AB::Device,
-        priors: Points,
     ) -> Gaussian3dTrainer<AB> {
         Gaussian3dTrainer {
             iteration: 0,
@@ -55,7 +53,6 @@ impl Gaussian3dTrainerConfig {
             optimizer_rotations: self.optimizer_adam.init(),
             optimizer_scalings: self.optimizer_adam.init(),
             options_renderer: self.options_renderer.to_owned(),
-            scene: Gaussian3dScene::init(device, priors),
             refiner: self.refiner.init(),
         }
     }

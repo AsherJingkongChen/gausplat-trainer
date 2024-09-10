@@ -46,11 +46,6 @@ impl LearningRate {
     pub fn into_record(self) -> LearningRateRecord {
         self.record
     }
-
-    #[inline]
-    pub fn to_record(&self) -> LearningRateRecord {
-        self.record.to_owned()
-    }
 }
 
 impl LearningRateConfig {

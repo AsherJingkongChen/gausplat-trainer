@@ -28,7 +28,7 @@ pub use burn::{
 #[derive(Clone, Debug)]
 pub struct Adam<AB: AutodiffBackend, const D: usize> {
     pub config: AdamConfig,
-    pub record: AdamRecord<AB, D>,
+    pub record: AdamRecord<AB::InnerBackend, D>,
 }
 
 #[derive(Config, Debug)]
@@ -49,8 +49,7 @@ pub struct AdamConfig {
     pub weight_decay: Option<f64>,
 }
 
-pub type AdamRecord<AB, const D: usize> =
-    Option<AdamState<<AB as AutodiffBackend>::InnerBackend, D>>;
+pub type AdamRecord<B, const D: usize> = Option<AdamState<B, D>>;
 
 #[derive(Clone, Debug, Record)]
 pub struct AdamState<B: Backend, const D: usize> {
@@ -140,20 +139,15 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
     #[inline]
     pub fn load_record(
         &mut self,
-        record: AdamRecord<AB, D>,
+        record: AdamRecord<AB::InnerBackend, D>,
     ) -> &mut Self {
         self.record = record;
         self
     }
 
     #[inline]
-    pub fn into_record(self) -> AdamRecord<AB, D> {
+    pub fn into_record(self) -> AdamRecord<AB::InnerBackend, D> {
         self.record
-    }
-
-    #[inline]
-    pub fn to_record(&self) -> AdamRecord<AB, D> {
-        self.record.to_owned()
     }
 }
 

@@ -70,16 +70,12 @@ impl<B: Backend> Refiner<B> {
     pub fn into_record(self) -> RefinerRecord<B> {
         self.record
     }
-
-    #[inline]
-    pub fn to_record(&self) -> RefinerRecord<B> {
-        self.record.to_owned()
-    }
 }
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
     pub fn refine(
         &mut self,
+        scene: &mut Gaussian3dScene<AB>,
         positions_2d_grad_norm: Tensor<AB::InnerBackend, 1>,
         radii: Tensor<AB::InnerBackend, 1, Int>,
     ) -> &mut Self {
@@ -130,11 +126,11 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             // Obtaining the points
 
             let points = [
-                self.scene.colors_sh.val().inner(),
-                self.scene.opacities.val().inner(),
-                self.scene.positions.val().inner(),
-                self.scene.rotations.val().inner(),
-                self.scene.scalings.val().inner(),
+                scene.colors_sh.val().inner(),
+                scene.opacities.val().inner(),
+                scene.positions.val().inner(),
+                scene.rotations.val().inner(),
+                scene.scalings.val().inner(),
             ];
 
             // Specifying the parameters
@@ -144,8 +140,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .to_owned()
                 .div(record.time.to_owned());
 
-            let scalings_max =
-                self.scene.scalings().inner().to_owned().max_dim(1);
+            let scalings_max = scene.scalings().inner().to_owned().max_dim(1);
 
             // Checking the points
 
@@ -154,8 +149,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .greater_elem(config.threshold_scaling);
             let is_not_huge = scalings_max
                 .lower_elem(config.threshold_scaling * FACTOR_SCALING_HUGE);
-            let is_opaque = self
-                .scene
+            let is_opaque = scene
                 .opacities()
                 .inner()
                 .greater_elem(config.threshold_opacity);
@@ -245,7 +239,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .require_grad()
             };
 
-            self.scene
+            scene
                 .set_inner_colors_sh(make_points(0))
                 .set_inner_opacities(make_points(1))
                 .set_inner_positions(make_points(2))
