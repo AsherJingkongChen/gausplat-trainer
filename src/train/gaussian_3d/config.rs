@@ -27,7 +27,7 @@ pub struct Gaussian3dTrainerConfig {
     )]
     pub options_renderer: Gaussian3dRendererOptions,
 
-    #[config(default = "RangeOptions::default_with_step(10)")]
+    #[config(default = "RangeOptions::new(500, u64::MAX, 10)")]
     pub range_optimization_fine: RangeOptions,
 
     #[config(default = "Default::default()")]

@@ -3,7 +3,7 @@ pub mod optimize;
 pub mod range;
 pub mod refine;
 
-pub use crate::metric;
+pub use crate::{error::Error, metric};
 pub use burn::{
     config::Config,
     record::Record,
@@ -72,7 +72,8 @@ where
         &mut self,
         scene: &mut Gaussian3dScene<Autodiff<B>>,
         camera: &Camera,
-    ) -> &mut Self {
+    ) -> Result<&mut Self, Error> {
+        // TODO: Result<_, E>
         self.iteration += 1;
 
         #[cfg(debug_assertions)]
@@ -90,36 +91,25 @@ where
         let colors_rgb_2d_target = get_tensor_from_image(
             &camera.image,
             &output.colors_rgb_2d.device(),
-        )
-        .expect("The image error should be handled in `gausplat-importer`");
+        )?;
 
         let grads = &mut self
             .loss(output.colors_rgb_2d, colors_rgb_2d_target)
             .backward();
 
-        let positions_2d_grad_norm =
-            output.positions_2d_grad_norm_ref.grad_remove(grads);
-        if positions_2d_grad_norm.is_none() {
-            #[cfg(debug_assertions)]
-            log::debug!(
-                target: "gausplat_trainer::train",
-                "Gaussian3dTrainer::train > Exiting if no gradient",
-            );
-
-            return self;
-        }
-
-        let positions_2d_grad_norm =
-            positions_2d_grad_norm.expect("Unreachable");
+        let positions_2d_grad_norm = output
+            .positions_2d_grad_norm_ref
+            .grad_remove(grads)
+            .expect("A gradient should exist during training");
 
         #[cfg(debug_assertions)]
         log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > grads");
 
-        self.optimize(scene, grads).refine(
+        Ok(self.optimize(scene, grads).refine(
             scene,
             positions_2d_grad_norm,
             output.radii,
-        )
+        ))
     }
 }
 
