@@ -1,5 +1,7 @@
 pub use super::*;
 
+use gausplat_renderer::preset::gaussian_3d::SEED;
+
 #[derive(Config, Debug)]
 pub struct Gaussian3dTrainerConfig {
     #[config(default = "2.5e-3.into()")]
@@ -27,9 +29,6 @@ pub struct Gaussian3dTrainerConfig {
     )]
     pub options_renderer: Gaussian3dRendererOptions,
 
-    #[config(default = "RangeOptions::new(500, u64::MAX, 10)")]
-    pub range_optimization_fine: RangeOptions,
-
     #[config(default = "Default::default()")]
     pub refiner: RefinerConfig,
 }
@@ -39,6 +38,8 @@ impl Gaussian3dTrainerConfig {
         &self,
         device: &AB::Device,
     ) -> Gaussian3dTrainer<AB> {
+        AB::seed(SEED);
+
         Gaussian3dTrainer {
             iteration: 0,
             learning_rate_colors_sh: self.learning_rate_colors_sh.init(),
@@ -56,7 +57,6 @@ impl Gaussian3dTrainerConfig {
             optimizer_rotations: self.optimizer_adam.init(),
             optimizer_scalings: self.optimizer_adam.init(),
             options_renderer: self.options_renderer.to_owned(),
-            range_optimization_fine: self.range_optimization_fine.to_owned(),
             refiner: self.refiner.init(),
         }
     }

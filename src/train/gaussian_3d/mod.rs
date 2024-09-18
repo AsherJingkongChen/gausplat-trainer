@@ -1,4 +1,5 @@
 pub mod config;
+pub mod loss;
 pub mod optimize;
 pub mod range;
 pub mod refine;
@@ -43,7 +44,6 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub optimizer_rotations: Adam<AB, 2>,
     pub optimizer_scalings: Adam<AB, 2>,
     pub options_renderer: Gaussian3dRendererOptions,
-    pub range_optimization_fine: RangeOptions,
     pub refiner: Refiner<AB::InnerBackend>,
 }
 
@@ -85,25 +85,19 @@ where
 
         let output = scene.render(&camera.view, &self.options_renderer);
 
-        #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > output");
-
         let colors_rgb_2d_target = get_tensor_from_image(
             &camera.image,
             &output.colors_rgb_2d.device(),
         )?;
 
         let grads = &mut self
-            .loss(output.colors_rgb_2d, colors_rgb_2d_target)
+            .get_loss_colors_rgb_2d(output.colors_rgb_2d, colors_rgb_2d_target)
             .backward();
 
         let positions_2d_grad_norm = output
             .positions_2d_grad_norm_ref
             .grad_remove(grads)
             .expect("A gradient should exist during training");
-
-        #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::train > grads");
 
         Ok(self.optimize(scene, grads).refine(
             scene,

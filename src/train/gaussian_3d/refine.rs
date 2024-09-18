@@ -255,15 +255,13 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 point_count_cloned + point_count_splitted;
             let point_count_new = point_count_retained + point_count_selected;
 
-            // #[cfg(debug_assertions)]
-            {
-                log::debug!(
-                    target: "gausplat_trainer::train",
-                    "Gaussian3dTrainer::refine > densification > point_count ({}) -> ({}) = ({} + {} + {})",
-                    point_count, point_count_new,
-                    point_count_retained, point_count_cloned, point_count_splitted,
-                );
-            }
+            #[cfg(debug_assertions)]
+            log::debug!(
+                target: "gausplat_trainer::train",
+                "Gaussian3dTrainer::refine > densification > point_count ({}) -> ({}) = ({} + {} + {})",
+                point_count, point_count_new,
+                point_count_retained, point_count_cloned, point_count_splitted,
+            );
 
             // Updating the optimizer records
 
