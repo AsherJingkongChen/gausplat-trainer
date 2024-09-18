@@ -1,10 +1,11 @@
 pub mod config;
-pub mod loss;
-pub mod optimize;
-pub mod range;
 pub mod refine;
 
-pub use crate::{error::Error, metric};
+pub use crate::{
+    error::Error,
+    metric::{self, Metric},
+    optimize::{Adam, AdamRecord, LearningRate, LearningRateRecord},
+};
 pub use burn::{
     config::Config,
     record::Record,
@@ -20,13 +21,10 @@ pub use gausplat_renderer::scene::gaussian_3d::{
     render::{Gaussian3dRenderer, Gaussian3dRendererOptions},
     Gaussian3dScene,
 };
-pub use optimize::*;
-pub use range::*;
 pub use refine::*;
 
 use crate::function::*;
 use gausplat_renderer::preset::spherical_harmonics::SH_DEGREE_MAX;
-use metric::Metric;
 
 #[derive(Clone, Debug)]
 pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
@@ -104,6 +102,81 @@ where
             positions_2d_grad_norm,
             output.radii,
         ))
+    }
+}
+
+impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
+    pub fn get_loss_colors_rgb_2d(
+        &self,
+        value: Tensor<AB, 3>,
+        target: Tensor<AB, 3>,
+    ) -> Tensor<AB, 1> {
+        const RANGE_STEP_OPTIMIZATION_FINE: u64 = 2;
+
+        if self.iteration % RANGE_STEP_OPTIMIZATION_FINE == 0 {
+            self.metric_optimization_coarse.evaluate(value, target)
+        } else {
+            self.metric_optimization_coarse
+                .evaluate(value.to_owned(), target.to_owned())
+                .add(
+                    self.metric_optimization_fine
+                        .evaluate(value.movedim(2, 0), target.movedim(2, 0)),
+                )
+                .div_scalar(2.0)
+        }
+    }
+
+    pub fn optimize(
+        &mut self,
+        scene: &mut Gaussian3dScene<AB>,
+        grads: &mut AB::Gradients,
+    ) -> &mut Self {
+        #[cfg(debug_assertions)]
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::optimize");
+
+        // Updating the parameters using the gradients
+
+        if let Some(grad) = scene.colors_sh.grad_remove(grads) {
+            scene.set_inner_colors_sh(self.optimizer_colors_sh.update(
+                *self.learning_rate_colors_sh,
+                scene.colors_sh.val(),
+                grad,
+            ));
+        }
+        if let Some(grad) = scene.opacities.grad_remove(grads) {
+            scene.set_inner_opacities(self.optimizer_opacities.update(
+                *self.learning_rate_opacities,
+                scene.opacities.val(),
+                grad,
+            ));
+        }
+        if let Some(grad) = scene.positions.grad_remove(grads) {
+            scene.set_inner_positions(self.optimizer_positions.update(
+                *self.learning_rate_positions,
+                scene.positions.val(),
+                grad,
+            ));
+        }
+        if let Some(grad) = scene.rotations.grad_remove(grads) {
+            scene.set_inner_rotations(self.optimizer_rotations.update(
+                *self.learning_rate_rotations,
+                scene.rotations.val(),
+                grad,
+            ));
+        }
+        if let Some(grad) = scene.scalings.grad_remove(grads) {
+            scene.set_inner_scalings(self.optimizer_scalings.update(
+                *self.learning_rate_scalings,
+                scene.scalings.val(),
+                grad,
+            ));
+        }
+
+        // Updating the learning rates
+
+        self.learning_rate_positions.update();
+
+        self
     }
 }
 

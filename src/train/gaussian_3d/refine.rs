@@ -1,4 +1,5 @@
 pub use super::*;
+pub use crate::range::RangeOptions;
 pub use burn::tensor::{Distribution, Int};
 
 use std::ops::Add;

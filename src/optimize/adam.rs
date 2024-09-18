@@ -4,7 +4,7 @@
 //! https://github.com/tracel-ai/burn/blob/v0.14.0/crates/burn-core/src/optim/adam.rs).
 //!
 //! Differences between the original module and this adaptation include:
-//! 1. Improved accessibility: All structs and properties are public.
+//! 1. Improved accessibility: All structs and properties being public.
 //! 2. Greater flexibility and interoperability with other modules.
 //! 3. Easier debugging and testing due to public visibility.
 //!
