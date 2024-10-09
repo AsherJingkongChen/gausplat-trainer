@@ -14,7 +14,7 @@ use burn::{
 ///
 /// ## Details
 ///
-/// * `self.filter.weight`: A normalized gaussian filter
+/// * `self.filter.weight` - A normalized gaussian filter
 ///   with shape of `[C, 1, 11, 11]` and the standard deviation of `1.5`
 #[derive(Clone, Debug)]
 pub struct MeanStructuralSimilarity<B: Backend, const C: usize> {
@@ -76,8 +76,8 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
 impl<B: Backend, const C: usize> Metric<B> for MeanStructuralSimilarity<B, C> {
     /// ## Arguments
     ///
-    /// * `value`: The input tensor with shape `[N?, C?, H, W]`.
-    /// * `target`: The target tensor with shape `[N?, C?, H, W]`.
+    /// * `value` - The input tensor with shape `[N?, C?, H, W]`.
+    /// * `target` - The target tensor with shape `[N?, C?, H, W]`.
     ///
     /// ## Returns
     ///
@@ -161,22 +161,22 @@ mod tests {
         let device = Default::default();
         let metric = MeanStructuralSimilarity::<NdArray<f32>, 3>::init(&device);
 
-        let input_0 = Tensor::zeros([1, 3, 32, 32], &device);
+        let input_0 = Tensor::<NdArray<f32>, 4>::zeros([1, 3, 32, 32], &device);
         let input_1 = Tensor::zeros([1, 3, 32, 32], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert_eq!(score, 1.0);
 
-        let input_0 = Tensor::ones([1, 3, 32, 32], &device);
+        let input_0 = Tensor::<NdArray<f32>, 4>::ones([1, 3, 32, 32], &device);
         let input_1 = Tensor::ones([1, 3, 32, 32], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert_eq!(score, 1.0);
 
-        let input_0 = Tensor::zeros([1, 3, 32, 32], &device);
+        let input_0 = Tensor::<NdArray<f32>, 4>::zeros([1, 3, 32, 32], &device);
         let input_1 = Tensor::ones([1, 3, 32, 32], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert!(score > 0.0 && score < 1e-4, "score: {:?}", score);
 
-        let input_0 = Tensor::random(
+        let input_0 = Tensor::<NdArray<f32>, 4>::random(
             [1, 3, 32, 32],
             Distribution::Uniform(0.01, 0.99),
             &device,

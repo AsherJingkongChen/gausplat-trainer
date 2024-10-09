@@ -6,25 +6,20 @@ pub use crate::{
     metric::{self, Metric},
     optimize::{Adam, AdamRecord, LearningRate, LearningRateRecord},
 };
-pub use burn::{
-    config::Config,
-    record::Record,
-    tensor::{
-        backend::{AutodiffBackend, Backend},
-        Tensor,
-    },
-};
+pub use burn::{config::Config, record::Record, tensor::Tensor};
 pub use config::*;
 pub use gausplat_importer::dataset::gaussian_3d::{Camera, Image};
 pub use gausplat_renderer::scene::gaussian_3d::{
-    backend::*,
-    render::{Gaussian3dRenderer, Gaussian3dRendererOptions},
+    backend::{self, *},
+    render::{
+        Gaussian3dRenderOutputAutodiff, Gaussian3dRenderer,
+        Gaussian3dRendererOptions,
+    },
     Gaussian3dScene,
 };
 pub use refine::*;
 
 use crate::function::*;
-use gausplat_renderer::preset::spherical_harmonics::SH_DEGREE_MAX;
 
 #[derive(Clone, Debug)]
 pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
@@ -71,7 +66,6 @@ where
         scene: &mut Gaussian3dScene<Autodiff<B>>,
         camera: &Camera,
     ) -> Result<&mut Self, Error> {
-        // TODO: Result<_, E>
         self.iteration += 1;
 
         #[cfg(debug_assertions)]
@@ -86,22 +80,17 @@ where
         let colors_rgb_2d_target = get_tensor_from_image(
             &camera.image,
             &output.colors_rgb_2d.device(),
-        )?;
+        )?
+        .set_require_grad(false);
 
-        let grads = &mut self
-            .get_loss_colors_rgb_2d(output.colors_rgb_2d, colors_rgb_2d_target)
-            .backward();
+        let loss = self.get_loss_colors_rgb_2d(
+            output.colors_rgb_2d.to_owned(),
+            colors_rgb_2d_target.to_owned(),
+        );
 
-        let positions_2d_grad_norm = output
-            .positions_2d_grad_norm_ref
-            .grad_remove(grads)
-            .expect("A gradient should exist during training");
+        let grads = &mut loss.backward();
 
-        Ok(self.optimize(scene, grads).refine(
-            scene,
-            positions_2d_grad_norm,
-            output.radii,
-        ))
+        Ok(self.optimize(scene, grads).refine(scene, grads, output))
     }
 }
 
@@ -114,8 +103,6 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         const RANGE_STEP_OPTIMIZATION_FINE: u64 = 2;
 
         if self.iteration % RANGE_STEP_OPTIMIZATION_FINE == 0 {
-            self.metric_optimization_coarse.evaluate(value, target)
-        } else {
             self.metric_optimization_coarse
                 .evaluate(value.to_owned(), target.to_owned())
                 .add(
@@ -123,6 +110,8 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                         .evaluate(value.movedim(2, 0), target.movedim(2, 0)),
                 )
                 .div_scalar(2.0)
+        } else {
+            self.metric_optimization_coarse.evaluate(value, target)
         }
     }
 

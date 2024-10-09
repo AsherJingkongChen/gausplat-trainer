@@ -25,8 +25,8 @@ impl<B: Backend, const C: usize> Metric<B>
 {
     /// ## Arguments
     ///
-    /// * `value`: The input tensor with shape `[N?, C?, H, W]`.
-    /// * `target`: The target tensor with shape `[N?, C?, H, W]`.
+    /// * `value` - The input tensor with shape `[N?, C?, H, W]`.
+    /// * `target` - The target tensor with shape `[N?, C?, H, W]`.
     ///
     /// ## Returns
     ///
@@ -67,22 +67,22 @@ mod tests {
         let metric =
             MeanStructuralDissimilarity::<NdArray<f32>, 3>::init(&device);
 
-        let input_0 = Tensor::zeros([1, 3, 36, 36], &device);
+        let input_0 = Tensor::<NdArray<f32>, 4>::zeros([1, 3, 36, 36], &device);
         let input_1 = Tensor::zeros([1, 3, 36, 36], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert_eq!(score, 0.0);
 
-        let input_0 = Tensor::ones([1, 3, 36, 36], &device);
+        let input_0 = Tensor::<NdArray<f32>, 4>::ones([1, 3, 36, 36], &device);
         let input_1 = Tensor::ones([1, 3, 36, 36], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert_eq!(score, 0.0);
 
-        let input_0 = Tensor::zeros([1, 3, 36, 36], &device);
+        let input_0 = Tensor::<NdArray<f32>, 4>::zeros([1, 3, 36, 36], &device);
         let input_1 = Tensor::ones([1, 3, 36, 36], &device);
         let score = metric.evaluate(input_0, input_1).into_scalar();
         assert!(score < 0.5001 && score > 0.4999, "score: {:?}", score);
 
-        let input_0 = Tensor::random(
+        let input_0 = Tensor::<NdArray<f32>, 4>::random(
             [1, 3, 36, 36],
             Distribution::Uniform(0.01, 0.99),
             &device,

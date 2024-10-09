@@ -1,7 +1,7 @@
 pub use super::*;
 pub use crate::optimize::{AdamConfig, LearningRateConfig};
 
-use gausplat_renderer::preset::gaussian_3d::SEED;
+use gausplat_renderer::scene::gaussian_3d::SEED_INIT;
 
 #[derive(Config, Debug)]
 pub struct Gaussian3dTrainerConfig {
@@ -39,7 +39,7 @@ impl Gaussian3dTrainerConfig {
         &self,
         device: &AB::Device,
     ) -> Gaussian3dTrainer<AB> {
-        AB::seed(SEED);
+        AB::seed(SEED_INIT);
 
         Gaussian3dTrainer {
             iteration: 0,

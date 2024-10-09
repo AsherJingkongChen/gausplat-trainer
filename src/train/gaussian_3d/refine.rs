@@ -2,6 +2,7 @@ pub use super::*;
 pub use crate::range::RangeOptions;
 pub use burn::tensor::{Distribution, Int};
 
+use gausplat_renderer::scene::gaussian_3d::SH_DEGREE_MAX;
 use std::ops::Add;
 
 #[derive(Clone, Debug)]
@@ -79,22 +80,28 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
     pub fn refine(
         &mut self,
         scene: &mut Gaussian3dScene<AB>,
-        positions_2d_grad_norm: Tensor<AB::InnerBackend, 1>,
-        radii: Tensor<AB::InnerBackend, 1, Int>,
+        grads: &mut AB::Gradients,
+        output: Gaussian3dRenderOutputAutodiff<AB>,
     ) -> &mut Self {
         // NOTE: The following factors are difficult to tune.
         const FACTOR_DEVIATION: f64 = 1.41;
         const FACTOR_SCALING_HUGE: f64 = 20.0;
         const FACTOR_SPLITTING: f64 = 0.71;
 
-        #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::refine");
+        // Specifying the parameters
 
-        // Initializing the record
+        let Some(positions_2d_grad_norm) =
+            output.positions_2d_grad_norm_ref.grad_remove(grads)
+        else {
+            return self;
+        };
+
+        #[cfg(debug_assertions)]
+        log::debug!(target: "gausplat::train::refine", "start");
 
         let config = &self.refiner.config;
-        let device = &radii.device();
-        let point_count = radii.dims()[0];
+        let device = &output.radii.device();
+        let point_count = output.radii.dims()[0];
         let record = self.refiner.record.get_or_insert_with(|| RefinerState {
             positions_2d_grad_norm_sum: Tensor::zeros([point_count], device),
             time: Tensor::zeros([point_count], device),
@@ -102,7 +109,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         // Updating the record
 
-        let is_visible = radii.not_equal_elem(0);
+        let is_visible = output.radii.not_equal_elem(0);
 
         record.positions_2d_grad_norm_sum =
             record.positions_2d_grad_norm_sum.to_owned().mask_where(
@@ -121,12 +128,9 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         if config.range_densification.has(self.iteration) {
             #[cfg(debug_assertions)]
-            log::debug!(
-                target: "gausplat_trainer::train",
-                "Gaussian3dTrainer::refine > densification",
-            );
+            log::debug!(target: "gausplat::train::refine", "densification");
 
-            // Obtaining the points
+            // Specifying the parameters
 
             let points = [
                 scene.colors_sh.val().inner(),
@@ -135,35 +139,39 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 scene.rotations.val().inner(),
                 scene.scalings.val().inner(),
             ];
-
-            // Specifying the parameters
-
             let positions_2d_grad_norm_mean = record
                 .positions_2d_grad_norm_sum
                 .to_owned()
                 .div(record.time.to_owned());
-
             let scalings_max = scene.scalings().inner().to_owned().max_dim(1);
 
             // Checking the points
 
+            // L
             let is_large = scalings_max
                 .to_owned()
                 .greater_elem(config.threshold_scaling);
+            // ~H
             let is_not_huge = scalings_max
                 .lower_elem(config.threshold_scaling * FACTOR_SCALING_HUGE);
+            // Q
             let is_opaque = scene
                 .opacities()
                 .inner()
                 .greater_elem(config.threshold_opacity);
+            // ~I
             let is_out = positions_2d_grad_norm_mean
                 .greater_elem(config.threshold_position_2d_grad_norm)
                 .unsqueeze_dim(1);
+            // ~I & L
             let is_out_and_large =
                 Tensor::cat(vec![is_out.to_owned(), is_large.to_owned()], 1)
                     .all_dim(1);
+            // I | ~L
             let is_in_or_small = is_out_and_large.to_owned().bool_not();
+            // ~L
             let is_small = is_large.to_owned().bool_not();
+            // Q & (I | ~L) & ~H
             let args_to_retain = Tensor::cat(
                 vec![is_opaque.to_owned(), is_in_or_small, is_not_huge],
                 1,
@@ -172,12 +180,14 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             .squeeze::<1>(1)
             .argwhere()
             .squeeze(1);
+            // Q & (~I & ~L)
             let args_to_clone =
                 Tensor::cat(vec![is_opaque.to_owned(), is_out, is_small], 1)
                     .all_dim(1)
                     .squeeze::<1>(1)
                     .argwhere()
                     .squeeze(1);
+            // Q & (~I & L)
             let args_to_split =
                 Tensor::cat(vec![is_opaque.to_owned(), is_out_and_large], 1)
                     .all_dim(1)
