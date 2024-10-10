@@ -2,24 +2,22 @@ pub mod config;
 pub mod refine;
 
 pub use crate::{
+    dataset::multiview::{Camera, Image, MultiViewDataset},
     error::Error,
     metric::{self, Metric},
     optimize::{Adam, AdamRecord, LearningRate, LearningRateRecord},
 };
 pub use burn::{config::Config, record::Record, tensor::Tensor};
 pub use config::*;
-pub use gausplat_importer::dataset::gaussian_3d::{Camera, Image};
 pub use gausplat_renderer::scene::gaussian_3d::{
     backend::{self, *},
     render::{
-        Gaussian3dRenderOutputAutodiff, Gaussian3dRenderer,
-        Gaussian3dRendererOptions,
+        Gaussian3dRenderOptions, Gaussian3dRenderOutputAutodiff,
+        Gaussian3dRenderer,
     },
     Gaussian3dScene,
 };
 pub use refine::*;
-
-use crate::function::*;
 
 #[derive(Clone, Debug)]
 pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
@@ -36,7 +34,7 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub optimizer_positions: Adam<AB, 2>,
     pub optimizer_rotations: Adam<AB, 2>,
     pub optimizer_scalings: Adam<AB, 2>,
-    pub options_renderer: Gaussian3dRendererOptions,
+    pub options_renderer: Gaussian3dRenderOptions,
     pub refiner: Refiner<AB::InnerBackend>,
 }
 
@@ -53,7 +51,7 @@ pub struct Gaussian3dTrainerRecord<B: Backend> {
     pub optimizer_positions: AdamRecord<B, 2>,
     pub optimizer_rotations: AdamRecord<B, 2>,
     pub optimizer_scalings: AdamRecord<B, 2>,
-    pub options_renderer: Gaussian3dRendererOptions,
+    pub options_renderer: Gaussian3dRenderOptions,
     pub refiner: RefinerRecord<B>,
 }
 
@@ -77,11 +75,9 @@ where
 
         let output = scene.render(&camera.view, &self.options_renderer);
 
-        let colors_rgb_2d_target = get_tensor_from_image(
-            &camera.image,
-            &output.colors_rgb_2d.device(),
-        )?
-        .set_require_grad(false);
+        let colors_rgb_2d_target = camera
+            .image
+            .decode_rgb_tensor(&output.colors_rgb_2d.device())?;
 
         let loss = self.get_loss_colors_rgb_2d(
             output.colors_rgb_2d.to_owned(),
