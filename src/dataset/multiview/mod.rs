@@ -2,7 +2,7 @@ pub mod camera;
 
 pub use crate::error::Error;
 pub use camera::*;
-pub use gausplat_importer::source::colmap::{self, ColmapSource};
+pub use gausplat_loader::source::colmap::{self, ColmapSource};
 pub use gausplat_renderer::{render::view::*, scene::point::*};
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -95,7 +95,7 @@ impl<S: Read + Send> TryFrom<colmap::ColmapSource<S>> for MultiViewDataset {
 
         #[cfg(debug_assertions)]
         log::debug!(
-            target: "gausplat_importer::source",
+            target: "gausplat_loader::source",
             "MultiViewDataset::try_from(ColmapSource)",
         );
 

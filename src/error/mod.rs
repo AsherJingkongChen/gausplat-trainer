@@ -1,7 +1,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Import error: {0}")]
-    Import(#[from] gausplat_importer::error::Error),
+    Import(#[from] gausplat_loader::error::Error),
 
     #[error("Unknown camera id: {0}")]
     UnknownCameraId(u32),
