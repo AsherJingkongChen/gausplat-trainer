@@ -139,6 +139,13 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 scene.rotations.val().inner(),
                 scene.scalings.val().inner(),
             ];
+            let is_points_require_grad = [
+                scene.colors_sh.is_require_grad(),
+                scene.opacities.is_require_grad(),
+                scene.positions.is_require_grad(),
+                scene.rotations.is_require_grad(),
+                scene.scalings.is_require_grad(),
+            ];
             let positions_2d_grad_norm_mean = record
                 .positions_2d_grad_norm_sum
                 .to_owned()
@@ -215,6 +222,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             let scalings_splitted =
                 Gaussian3dScene::make_scalings(points_splitted[4].to_owned());
+
             // Decreasing the opacity
             points_splitted[1] = Gaussian3dScene::make_inner_opacities(
                 Gaussian3dScene::make_opacities(points_splitted[1].to_owned())
@@ -249,7 +257,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                     ],
                     0,
                 ))
-                .require_grad()
+                .set_require_grad(is_points_require_grad[param_index])
             };
 
             scene
