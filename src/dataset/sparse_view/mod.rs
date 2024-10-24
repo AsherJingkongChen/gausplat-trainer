@@ -9,12 +9,12 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::{fmt, io::Read};
 
 #[derive(Clone, PartialEq)]
-pub struct MultiViewDataset {
+pub struct SparseViewDataset {
     pub cameras: Cameras,
     pub points: Points,
 }
 
-impl<S: Read + Send> TryFrom<colmap::ColmapSource<S>> for MultiViewDataset {
+impl<S: Read + Send> TryFrom<colmap::ColmapSource<S>> for SparseViewDataset {
     type Error = Error;
 
     fn try_from(source: colmap::ColmapSource<S>) -> Result<Self, Self::Error> {
@@ -96,26 +96,26 @@ impl<S: Read + Send> TryFrom<colmap::ColmapSource<S>> for MultiViewDataset {
         #[cfg(debug_assertions)]
         log::debug!(
             target: "gausplat_loader::source",
-            "MultiViewDataset::try_from(ColmapSource)",
+            "SparseViewDataset::try_from(ColmapSource)",
         );
 
         Ok(Self { cameras, points })
     }
 }
 
-impl fmt::Debug for MultiViewDataset {
+impl fmt::Debug for SparseViewDataset {
     fn fmt(
         &self,
         f: &mut fmt::Formatter<'_>,
     ) -> fmt::Result {
-        f.debug_struct("MultiViewDataset")
+        f.debug_struct("SparseViewDataset")
             .field("cameras.len()", &self.cameras.len())
             .field("points.len()", &self.points.len())
             .finish()
     }
 }
 
-impl Default for MultiViewDataset {
+impl Default for SparseViewDataset {
     #[inline]
     fn default() -> Self {
         Self {
@@ -131,7 +131,7 @@ mod tests {
     fn default() {
         use super::*;
 
-        let dataset = MultiViewDataset::default();
+        let dataset = SparseViewDataset::default();
         assert!(dataset.cameras.is_empty());
         assert!(!dataset.points.is_empty());
     }
@@ -140,7 +140,7 @@ mod tests {
     fn default_try_from_colmap() {
         use super::*;
 
-        MultiViewDataset::try_from(ColmapSource::<&[u8]> {
+        SparseViewDataset::try_from(ColmapSource::<&[u8]> {
             cameras: [Default::default()].into(),
             images: [Default::default()].into(),
             images_file: [Default::default()].into(),
@@ -148,6 +148,6 @@ mod tests {
         })
         .unwrap_err();
 
-        MultiViewDataset::try_from(ColmapSource::<&[u8]>::default()).unwrap();
+        SparseViewDataset::try_from(ColmapSource::<&[u8]>::default()).unwrap();
     }
 }

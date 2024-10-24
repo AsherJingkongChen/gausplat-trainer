@@ -2,7 +2,7 @@ pub mod config;
 pub mod refine;
 
 pub use crate::{
-    dataset::multiview::{Camera, Image, MultiViewDataset},
+    dataset::sparse_view::{Camera, Image, SparseViewDataset},
     error::Error,
     metric::{self, Metric},
     optimize::{Adam, AdamRecord, LearningRate, LearningRateRecord},

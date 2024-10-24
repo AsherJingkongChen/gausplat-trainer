@@ -1,1 +1,1 @@
-pub mod multiview;
+pub mod sparse_view;
