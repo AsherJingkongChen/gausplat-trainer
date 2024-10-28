@@ -68,8 +68,8 @@ where
 
         #[cfg(debug_assertions)]
         log::debug!(
-            target: "gausplat_trainer::train",
-            "Gaussian3dTrainer::train > iteration {}",
+            target: "gausplat::trainer::gaussian_3d::train",
+            "iteration > ({})",
             self.iteration,
         );
 
@@ -117,7 +117,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         grads: &mut AB::Gradients,
     ) -> &mut Self {
         #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::optimize");
+        log::debug!(target: "gausplat::trainer::gaussian_3d::optimize", "start");
 
         // Updating the parameters using the gradients
 
