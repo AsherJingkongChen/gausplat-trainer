@@ -31,7 +31,7 @@ pub struct Adam<AB: AutodiffBackend, const D: usize> {
     pub record: AdamRecord<AB::InnerBackend, D>,
 }
 
-#[derive(Config, Debug)]
+#[derive(Config, Debug, PartialEq)]
 pub struct AdamConfig {
     /// The coefficient used for computing running average of gradient.
     #[config(default = "0.9")]

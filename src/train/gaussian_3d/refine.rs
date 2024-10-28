@@ -11,7 +11,7 @@ pub struct Refiner<B: Backend> {
     pub record: RefinerRecord<B>,
 }
 
-#[derive(Config, Debug)]
+#[derive(Config, Debug, PartialEq)]
 pub struct RefinerConfig {
     #[config(default = "RangeOptions::new(500, 15000, 100)")]
     pub range_densification: RangeOptions,
@@ -34,6 +34,7 @@ pub type RefinerRecord<B> = Option<RefinerState<B>>;
 #[derive(Clone, Debug, Record)]
 pub struct RefinerState<B: Backend> {
     pub positions_2d_grad_norm_sum: Tensor<B, 1>,
+    /// `[N] (1 ~ )`
     pub time: Tensor<B, 1>,
 }
 
@@ -97,14 +98,14 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         };
 
         #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat::train::refine", "start");
+        log::debug!(target: "gausplat::trainer::gaussian_3d::refine", "start");
 
         let config = &self.refiner.config;
         let device = &output.radii.device();
         let point_count = output.radii.dims()[0];
         let record = self.refiner.record.get_or_insert_with(|| RefinerState {
             positions_2d_grad_norm_sum: Tensor::zeros([point_count], device),
-            time: Tensor::zeros([point_count], device),
+            time: Tensor::ones([point_count], device),
         });
 
         // Updating the record
@@ -128,7 +129,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         if config.range_densification.has(self.iteration) {
             #[cfg(debug_assertions)]
-            log::debug!(target: "gausplat::train::refine", "densification");
+            log::debug!(target: "gausplat::trainer::gaussian_3d::refine", "densification");
 
             // Specifying the parameters
 
@@ -178,6 +179,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             let is_in_or_small = is_out_and_large.to_owned().bool_not();
             // ~L
             let is_small = is_large.to_owned().bool_not();
+
             // Q & (I | ~L) & ~H
             let args_to_retain = Tensor::cat(
                 vec![is_opaque.to_owned(), is_in_or_small, is_not_huge],
@@ -213,13 +215,28 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             let points_cloned = points
                 .to_owned()
                 .map(|p| p.select(0, args_to_clone.to_owned()));
+            // TODO: Deviation on cloning
+            // let scalings_cloned =
+            //     Gaussian3dScene::make_scalings(points_cloned[4].to_owned());
+
+            // // Moving the position randomly
+            // points_cloned[2] = Gaussian3dScene::make_inner_positions(
+            //     Gaussian3dScene::make_positions(points_cloned[2].to_owned())
+            //         .add(
+            //             scalings_cloned
+            //                 .random_like(Distribution::Normal(
+            //                     0.0,
+            //                     FACTOR_DEVIATION * 0.5,
+            //                 ))
+            //                 .mul(scalings_cloned.to_owned()),
+            //         ),
+            // );
 
             // Densifying by splitting large points
 
             let mut points_splitted = points.map(|p| {
                 p.select(0, args_to_split.to_owned()).repeat_dim(0, 2)
             });
-
             let scalings_splitted =
                 Gaussian3dScene::make_scalings(points_splitted[4].to_owned());
 
@@ -276,8 +293,8 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             #[cfg(debug_assertions)]
             log::debug!(
-                target: "gausplat_trainer::train",
-                "Gaussian3dTrainer::refine > densification > point_count ({}) -> ({}) = ({} + {} + {})",
+                target: "gausplat::trainer::gaussian_3d::refine",
+                "densification > point_count ({}) -> ({}) = ({}R + {}C + {}S)",
                 point_count, point_count_new,
                 point_count_retained, point_count_cloned, point_count_splitted,
             );
@@ -326,7 +343,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             record.positions_2d_grad_norm_sum =
                 Tensor::zeros([point_count_new], device);
-            record.time = Tensor::zeros([point_count_new], device);
+            record.time = Tensor::ones([point_count_new], device);
         }
 
         // Increasing the renderer option `colors_sh_degree_max`
