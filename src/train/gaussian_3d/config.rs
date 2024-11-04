@@ -3,7 +3,7 @@ pub use crate::optimize::{AdamConfig, LearningRateConfig};
 
 use gausplat_renderer::scene::gaussian_3d::SEED_INIT;
 
-#[derive(Config, Debug)]
+#[derive(Config, Debug, PartialEq)]
 pub struct Gaussian3dTrainerConfig {
     #[config(default = "2.5e-3.into()")]
     pub learning_rate_colors_sh: LearningRateConfig,
@@ -26,9 +26,9 @@ pub struct Gaussian3dTrainerConfig {
     pub optimizer_adam: AdamConfig,
 
     #[config(
-        default = "Gaussian3dRendererOptions::default().with_colors_sh_degree_max(0)"
+        default = "Gaussian3dRenderOptions::default().with_colors_sh_degree_max(0)"
     )]
-    pub options_renderer: Gaussian3dRendererOptions,
+    pub options_renderer: Gaussian3dRenderOptions,
 
     #[config(default = "Default::default()")]
     pub refiner: RefinerConfig,

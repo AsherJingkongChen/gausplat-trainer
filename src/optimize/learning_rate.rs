@@ -11,7 +11,7 @@ pub struct LearningRate {
 }
 
 /// A learning rate that can be a constant or exponentially decayed.
-#[derive(Config, Debug)]
+#[derive(Config, Debug, PartialEq)]
 pub struct LearningRateConfig {
     // The max count to update the learning rate.
     #[config(default = "0")]

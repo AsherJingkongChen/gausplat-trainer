@@ -8,10 +8,11 @@ readme = "README.md"
 version.workspace = true
 
 [dependencies]
-gausplat-importer = {workspace = true}
+gausplat-loader = {workspace = true}
 gausplat-renderer = {workspace = true}
 
 burn = {workspace = true, features = ["autodiff", "default"]}
+dashmap = {workspace = true, features = ["rayon"]}
 log = {workspace = true}
 rayon = {workspace = true}
 thiserror = {workspace = true}

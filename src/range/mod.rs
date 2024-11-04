@@ -1,6 +1,6 @@
 pub use burn::config::Config;
 
-#[derive(Config, Debug)]
+#[derive(Config, Debug, PartialEq)]
 pub struct RangeOptions {
     pub start: u64,
     pub end: u64,
