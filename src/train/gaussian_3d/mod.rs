@@ -77,7 +77,8 @@ where
 
         let colors_rgb_2d_target = camera
             .image
-            .decode_rgb_to_tensor(&output.colors_rgb_2d.device())?;
+            .decode_rgb_to_tensor(&output.colors_rgb_2d.device())?
+            .set_require_grad(false);
 
         let loss = self.get_loss_colors_rgb_2d(
             output.colors_rgb_2d.to_owned(),
