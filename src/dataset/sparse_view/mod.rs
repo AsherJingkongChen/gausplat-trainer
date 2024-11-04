@@ -95,8 +95,8 @@ impl<S: Read + Send> TryFrom<colmap::ColmapSource<S>> for SparseViewDataset {
 
         #[cfg(debug_assertions)]
         log::debug!(
-            target: "gausplat::trainer::dataset::sparse_view",
-            "SparseViewDataset > try_from(ColmapSource)",
+            target: "gausplat_loader::source",
+            "SparseViewDataset::try_from(ColmapSource)",
         );
 
         Ok(Self { cameras, points })

@@ -1,5 +1,6 @@
 pub use super::*;
 
+use crate::error::Error;
 use burn::{
     module::Param,
     nn::{conv, PaddingConfig2d},
@@ -105,7 +106,15 @@ impl<B: Backend, const C: usize> Metric<B> for MeanStructuralSimilarity<B, C> {
             target.unsqueeze::<4>().expand([-1, C as i64, -1, -1]),
         );
 
-        debug_assert_eq!(input.0.dims(), input.1.dims());
+        let input_0_shape = input.0.shape().dims;
+        let input_1_shape = input.1.shape().dims;
+        if input_0_shape != input_1_shape {
+            Err::<(), _>(
+                Error::MismatchedTensorShape(input_0_shape, input_1_shape)
+                    .to_string(),
+            )
+            .expect("This is an internal error");
+        }
 
         // F(x) = sum(w[G, G] * x[H, W])
         let filter = &self.filter;

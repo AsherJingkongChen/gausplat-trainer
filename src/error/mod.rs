@@ -6,6 +6,12 @@ pub enum Error {
     #[error("IO Error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("Mismatched tensor shape: {0:?}. It should be {1:?}.")]
+    MismatchedTensorShape(Vec<usize>, Vec<usize>),
+
+    #[error("Render error: {0}")]
+    Render(#[from] gausplat_renderer::error::Error),
+
     #[error("Unknown camera id: {0}")]
     UnknownCameraId(u32),
 

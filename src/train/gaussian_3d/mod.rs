@@ -68,12 +68,12 @@ where
 
         #[cfg(debug_assertions)]
         log::debug!(
-            target: "gausplat::trainer::gaussian_3d::train",
-            "iteration > ({})",
+            target: "gausplat_trainer::train",
+            "Gaussian3dTrainer::train > iteration {}",
             self.iteration,
         );
 
-        let output = scene.render(&camera.view, &self.options_renderer);
+        let output = scene.render(&camera.view, &self.options_renderer)?;
 
         let colors_rgb_2d_target = camera
             .image
@@ -117,7 +117,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         grads: &mut AB::Gradients,
     ) -> &mut Self {
         #[cfg(debug_assertions)]
-        log::debug!(target: "gausplat::trainer::gaussian_3d::optimize", "start");
+        log::debug!(target: "gausplat_trainer::train", "Gaussian3dTrainer::optimize");
 
         // Updating the parameters using the gradients
 
