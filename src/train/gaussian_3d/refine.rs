@@ -151,7 +151,8 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .positions_2d_grad_norm_sum
                 .to_owned()
                 .div(record.time.to_owned());
-            let scalings_max = scene.scalings().inner().to_owned().max_dim(1);
+            let scalings_max =
+                scene.get_scalings().inner().to_owned().max_dim(1);
 
             // Checking the points
 
@@ -164,7 +165,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .lower_elem(config.threshold_scaling * FACTOR_SCALING_HUGE);
             // Q
             let is_opaque = scene
-                .opacities()
+                .get_opacities()
                 .inner()
                 .greater_elem(config.threshold_opacity);
             // ~I
