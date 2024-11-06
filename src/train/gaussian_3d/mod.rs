@@ -249,6 +249,6 @@ mod tests {
         Refiner::<Autodiff<Wgpu>>::default();
 
         let _ = *LearningRate::from(f64::default());
-        let _ = *(&mut LearningRate::default());
+        let _ = LearningRate::default();
     }
 }
