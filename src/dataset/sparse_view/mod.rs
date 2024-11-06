@@ -3,7 +3,7 @@ pub mod camera;
 pub use crate::error::Error;
 pub use camera::*;
 pub use gausplat_loader::source::colmap::{self, ColmapSource};
-pub use gausplat_renderer::{render::view::*, scene::point::*};
+pub use gausplat_renderer::scene::point::*;
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::{fmt, io::Read};

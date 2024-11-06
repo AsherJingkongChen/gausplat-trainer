@@ -1,8 +1,8 @@
 pub mod cameras;
 
-pub use super::View;
 pub use cameras::*;
 pub use gausplat_loader::source::image::*;
+pub use gausplat_renderer::render::view::*;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Camera {
