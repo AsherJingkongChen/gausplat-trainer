@@ -6,6 +6,12 @@ pub enum Error {
     #[error("IO Error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("Mismatched image file name: {0:?}. It should be {1:?}.")]
+    MismatchedImageFileName(String, String),
+
+    #[error("Mismatched image id: {0}. It should be {1}.")]
+    MismatchedImageId(u32, u32),
+
     #[error("Mismatched tensor shape: {0:?}. It should be {1:?}.")]
     MismatchedTensorShape(Vec<usize>, Vec<usize>),
 
@@ -15,6 +21,6 @@ pub enum Error {
     #[error("Unknown camera id: {0}")]
     UnknownCameraId(u32),
 
-    #[error("Unknown image file name: {0}")]
+    #[error("Unknown image file name: {0:?}")]
     UnknownImageFileName(String),
 }
