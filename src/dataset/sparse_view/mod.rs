@@ -6,7 +6,7 @@ pub use gausplat_loader::source::colmap::{self, ColmapSource};
 pub use gausplat_renderer::scene::point::*;
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::{fmt, io::Read, ops::Mul};
+use std::{ffi::OsStr, fmt, io::Read, ops::Mul};
 
 #[derive(Clone, PartialEq)]
 pub struct SparseViewDataset {
@@ -14,7 +14,7 @@ pub struct SparseViewDataset {
     pub points: Points,
 }
 
-impl<S: Read + Send> TryFrom<ColmapSource<S>> for SparseViewDataset {
+impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
     type Error = Error;
 
     fn try_from(source: ColmapSource<S>) -> Result<Self, Self::Error> {
@@ -27,19 +27,27 @@ impl<S: Read + Send> TryFrom<ColmapSource<S>> for SparseViewDataset {
             })
             .collect();
 
-        let images_encoded = source
+        let images_file = source
             .images_file
             .inner
             .into_par_iter()
-            .map(|(image_file_name, mut image_file)| {
-                // Checking the image file name
-                if image_file_name != image_file.name {
-                    Err(Error::MismatchedImageFileName(
-                        image_file_name.to_owned(),
-                        image_file.name.to_owned(),
+            .map(|(image_file_path, image_file)| {
+                // Checking the image file path
+                if image_file_path != image_file.path {
+                    return Err(Error::MismatchedImageFilePath(
+                        image_file_path,
+                        image_file.path,
                     ))?;
                 }
-                Ok((image_file_name, image_file.read()?))
+
+                let image_file_name = image_file_path
+                    .file_name()
+                    .ok_or_else(|| {
+                        Error::IoIsADirectory(image_file_path.to_owned())
+                    })?
+                    .to_owned();
+
+                Ok((image_file_name, image_file))
             })
             .collect::<Result<dashmap::DashMap<_, _>, Self::Error>>()?;
 
@@ -65,23 +73,28 @@ impl<S: Read + Send> TryFrom<ColmapSource<S>> for SparseViewDataset {
                 let field_of_view_y = (camera.height() as f64)
                     .atan2(2.0 * camera.focal_length_y())
                     .mul(2.0);
-                let image_file_name = image.file_name;
+                // NOTE: Generally, the file name encoding is UTF-8 in COLMAP model.
+                let image_file_name = OsStr::new(image.file_name.to_str()?);
+                let mut image_file = images_file
+                    .remove(image_file_name)
+                    .ok_or_else(|| {
+                        Error::UnknownImageFileName(
+                            image_file_name.to_owned().into(),
+                        )
+                    })?
+                    .1;
+                let image_encoded = image_file.read()?;
+                let image_file_path = image_file.path;
                 let view_rotation = View::rotation(&image.quaternion);
                 let view_position =
                     View::position(&view_rotation, &image.translation);
                 let view_transform =
                     View::transform(&view_rotation, &image.translation);
-                let image_encoded = images_encoded
-                    .remove(&image_file_name)
-                    .ok_or(Error::UnknownImageFileName(
-                        image_file_name.to_owned(),
-                    ))?
-                    .1;
 
                 // Image
                 let image = Image {
                     image_encoded,
-                    image_file_name,
+                    image_file_path,
                     image_id: id,
                 };
                 let (image_width, image_height) = image.decode_dimensions()?;
