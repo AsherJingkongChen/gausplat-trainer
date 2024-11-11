@@ -42,6 +42,7 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
 
                 let image_file_name = image_file_path
                     .file_name()
+                    .filter(|_| image_file_path.is_file())
                     .ok_or_else(|| {
                         Error::IoIsADirectory(image_file_path.to_owned())
                     })?
@@ -83,6 +84,7 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
                         )
                     })?
                     .1;
+                // NOTE: Reading the image file at this point is more memory efficient.
                 let image_encoded = image_file.read()?;
                 let image_file_path = image_file.path;
                 let view_rotation = View::rotation(&image.quaternion);
