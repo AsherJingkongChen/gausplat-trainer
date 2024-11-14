@@ -11,6 +11,9 @@ pub enum Error {
     #[error("IO error: is a directory: {0:?}")]
     IoIsADirectory(PathBuf),
 
+    #[error("Invalid UTF-8 string: {0:?}")]
+    InvalidUtf8(String),
+
     #[error("Mismatched image file path: {0:?}. It should be {1:?}.")]
     MismatchedImageFilePath(PathBuf, PathBuf),
 
@@ -28,7 +31,4 @@ pub enum Error {
 
     #[error("Unknown image file name: {0:?}")]
     UnknownImageFileName(PathBuf),
-
-    #[error("UTF-8 error: {0}")]
-    Utf8(#[from] std::str::Utf8Error),
 }

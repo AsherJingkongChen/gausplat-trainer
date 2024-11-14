@@ -69,7 +69,7 @@ where
         #[cfg(debug_assertions)]
         log::debug!(
             target: "gausplat::trainer::gaussian_3d::train",
-            "iteration > ({})",
+            "iteration ({})",
             self.iteration,
         );
 

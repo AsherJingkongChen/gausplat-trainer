@@ -68,22 +68,25 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
                     .cameras
                     .get(&camera_id)
                     .ok_or(Error::UnknownCameraId(camera_id))?;
-                let field_of_view_x = (camera.width() as f64)
+                let field_of_view_x = (camera.width as f64)
                     .atan2(2.0 * camera.focal_length_x())
                     .mul(2.0);
-                let field_of_view_y = (camera.height() as f64)
+                let field_of_view_y = (camera.height as f64)
                     .atan2(2.0 * camera.focal_length_y())
                     .mul(2.0);
                 // NOTE: Generally, the file name encoding is UTF-8 in COLMAP model.
-                let image_file_name = OsStr::new(image.file_name.to_str()?);
+                let image_file_name =
+                    OsStr::new(image.file_name.to_str().map_err(|_| {
+                        Error::InvalidUtf8(
+                            image.file_name.to_string_lossy().into_owned(),
+                        )
+                    })?);
                 let mut image_file = images_file
                     .remove(image_file_name)
+                    .map(|p| p.1)
                     .ok_or_else(|| {
-                        Error::UnknownImageFileName(
-                            image_file_name.to_owned().into(),
-                        )
-                    })?
-                    .1;
+                        Error::UnknownImageFileName(image_file_name.into())
+                    })?;
                 // NOTE: Reading the image file at this point is more memory efficient.
                 let image_encoded = image_file.read()?;
                 let image_file_path = image_file.path;

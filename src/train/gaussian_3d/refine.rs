@@ -361,7 +361,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             #[cfg(debug_assertions)]
             log::debug!(
                 target: "gausplat::trainer::gaussian_3d::refine",
-                "increasing_colors_sh_degree_max > ({})",
+                "increasing_colors_sh_degree_max ({})",
                 colors_sh_degree_max,
             );
         }
