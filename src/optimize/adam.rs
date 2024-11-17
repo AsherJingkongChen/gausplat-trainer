@@ -361,6 +361,8 @@ mod tests {
             optimizer_for_bias.update(learning_rate, bias.val(), grad),
         );
 
-        assert!(weight.is_nan().bool_not().all().into_scalar());
+        let target = true;
+        let output = weight.is_nan().bool_not().all().into_scalar();
+        assert_eq!(output, target);
     }
 }

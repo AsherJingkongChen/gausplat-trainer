@@ -44,13 +44,11 @@ mod tests {
         use super::*;
 
         let range = RangeOptions::new(1, 9, 2);
-        assert!(!range.has(0));
-        assert!(range.has(1));
-        assert!(!range.has(2));
-        assert!(range.has(3));
-        assert!(range.has(5));
-        assert!(range.has(7));
-        assert!(!range.has(9));
-        assert!(!range.has(10));
+
+        (0..11).for_each(|i| {
+            let target = i % 2 != 0 && i < 9;
+            let output = range.has(i);
+            assert_eq!(output, target, "range.has({i})");
+        });
     }
 }

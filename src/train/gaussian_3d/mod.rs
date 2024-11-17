@@ -2,7 +2,7 @@ pub mod config;
 pub mod refine;
 
 pub use crate::{
-    dataset::sparse_view::*,
+    dataset::{sparse_view, SparseViewDataset},
     error::Error,
     metric::{self, Metric},
     optimize::{Adam, AdamRecord, LearningRate, LearningRateRecord},
@@ -62,7 +62,7 @@ where
     pub fn train(
         &mut self,
         scene: &mut Gaussian3dScene<Autodiff<B>>,
-        camera: &Camera,
+        camera: &sparse_view::Camera,
     ) -> Result<&mut Self, Error> {
         self.iteration += 1;
 
