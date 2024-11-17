@@ -97,19 +97,22 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         value: Tensor<AB, 3>,
         target: Tensor<AB, 3>,
     ) -> Tensor<AB, 1> {
-        const RANGE_STEP_OPTIMIZATION_FINE: u64 = 2;
+        const RANGE_STEP_OPTIM_COARSE_ONLY: u64 = 3;
 
-        if self.iteration % RANGE_STEP_OPTIMIZATION_FINE == 0 {
-            self.metric_optimization_coarse
-                .evaluate(value.to_owned(), target.to_owned())
+        let mut loss = self
+            .metric_optimization_coarse
+            .evaluate(value.to_owned(), target.to_owned());
+
+        if self.iteration % RANGE_STEP_OPTIM_COARSE_ONLY != 0 {
+            loss = loss
                 .add(
                     self.metric_optimization_fine
                         .evaluate(value.movedim(2, 0), target.movedim(2, 0)),
                 )
-                .div_scalar(2.0)
-        } else {
-            self.metric_optimization_coarse.evaluate(value, target)
+                .div_scalar(2.0);
         }
+
+        loss
     }
 
     pub fn optimize(
