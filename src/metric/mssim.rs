@@ -46,10 +46,7 @@ impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
                 // G / 2
                 let size_half = WEIGHT_SIZE_HALF as i64;
                 // x = [-G / 2, G / 2]
-                let x = Tensor::<B, 1, Int>::arange(
-                    -size_half..size_half + 1,
-                    device,
-                );
+                let x = Tensor::<B, 1, Int>::arange(-size_half..size_half + 1, device);
                 // -x^2[1, G]
                 let x2_n = x.powi_scalar(2).neg().float().unsqueeze::<2>();
                 // -y^2[G, 1]
@@ -141,8 +138,7 @@ impl<B: Backend, const C: usize> Metric<B> for MeanStructuralSimilarity<B, C> {
         // μ01 = μ0 * μ1
         let mean_01 = mean.0.mul(mean.1);
         // σ01 = F(x0 * x1) - μ01
-        let std_01 =
-            filter.forward(input.0.mul(input.1)).sub(mean_01.to_owned());
+        let std_01 = filter.forward(input.0.mul(input.1)).sub(mean_01.to_owned());
         // I(x0, x1) = (2 * μ01 + C1) * (2 * σ01 + C2) /
         //             ((μ0^2 + μ1^2 + C1) * (σ0^2 + σ1^2 + C2))
         let indexes = (mean_01 + FRAC_C1_2) * (std_01 + FRAC_C2_2) * 4.0

@@ -49,9 +49,7 @@ impl Gaussian3dTrainerConfig {
             learning_rate_rotations: self.learning_rate_rotations.init(),
             learning_rate_scalings: self.learning_rate_scalings.init(),
             metric_optimization_coarse: metric::MeanAbsoluteError::init(),
-            metric_optimization_fine: metric::MeanStructuralDissimilarity::init(
-                device,
-            ),
+            metric_optimization_fine: metric::MeanStructuralDissimilarity::init(device),
             optimizer_colors_sh: self.optimizer_adam.init(),
             optimizer_opacities: self.optimizer_adam.init(),
             optimizer_positions: self.optimizer_adam.init(),

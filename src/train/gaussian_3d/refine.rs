@@ -97,7 +97,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             return self;
         };
 
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, not(test)))]
         log::debug!(target: "gausplat::trainer::gaussian_3d::refine", "start");
 
         let config = &self.refiner.config;
@@ -128,7 +128,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         // Densification
 
         if config.range_densification.has(self.iteration) {
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, not(test)))]
             log::debug!(target: "gausplat::trainer::gaussian_3d::refine", "densification");
 
             // Specifying the parameters
@@ -151,8 +151,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .positions_2d_grad_norm_sum
                 .to_owned()
                 .div(record.time.to_owned());
-            let scalings_max =
-                scene.get_scalings().inner().to_owned().max_dim(1);
+            let scalings_max = scene.get_scalings().inner().to_owned().max_dim(1);
 
             // Checking the points
 
@@ -161,8 +160,8 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .to_owned()
                 .greater_elem(config.threshold_scaling);
             // ~H
-            let is_not_huge = scalings_max
-                .lower_elem(config.threshold_scaling * FACTOR_SCALING_HUGE);
+            let is_not_huge =
+                scalings_max.lower_elem(config.threshold_scaling * FACTOR_SCALING_HUGE);
             // Q
             let is_opaque = scene
                 .get_opacities()
@@ -174,22 +173,19 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .unsqueeze_dim(1);
             // ~I & L
             let is_out_and_large =
-                Tensor::cat(vec![is_out.to_owned(), is_large.to_owned()], 1)
-                    .all_dim(1);
+                Tensor::cat(vec![is_out.to_owned(), is_large.to_owned()], 1).all_dim(1);
             // I | ~L
             let is_in_or_small = is_out_and_large.to_owned().bool_not();
             // ~L
             let is_small = is_large.to_owned().bool_not();
 
             // Q & (I | ~L) & ~H
-            let args_to_retain = Tensor::cat(
-                vec![is_opaque.to_owned(), is_in_or_small, is_not_huge],
-                1,
-            )
-            .all_dim(1)
-            .squeeze::<1>(1)
-            .argwhere()
-            .squeeze(1);
+            let args_to_retain =
+                Tensor::cat(vec![is_opaque.to_owned(), is_in_or_small, is_not_huge], 1)
+                    .all_dim(1)
+                    .squeeze::<1>(1)
+                    .argwhere()
+                    .squeeze(1);
             // Q & (~I & ~L)
             let args_to_clone =
                 Tensor::cat(vec![is_opaque.to_owned(), is_out, is_small], 1)
@@ -235,9 +231,8 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             // Densifying by splitting large points
 
-            let mut points_splitted = points.map(|p| {
-                p.select(0, args_to_split.to_owned()).repeat_dim(0, 2)
-            });
+            let mut points_splitted =
+                points.map(|p| p.select(0, args_to_split.to_owned()).repeat_dim(0, 2));
             let scalings_splitted =
                 Gaussian3dScene::make_scalings(points_splitted[4].to_owned());
 
@@ -248,15 +243,11 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             );
             // Moving the position randomly
             points_splitted[2] = Gaussian3dScene::make_inner_positions(
-                Gaussian3dScene::make_positions(points_splitted[2].to_owned())
-                    .add(
-                        scalings_splitted
-                            .random_like(Distribution::Normal(
-                                0.0,
-                                FACTOR_DEVIATION,
-                            ))
-                            .mul(scalings_splitted.to_owned()),
-                    ),
+                Gaussian3dScene::make_positions(points_splitted[2].to_owned()).add(
+                    scalings_splitted
+                        .random_like(Distribution::Normal(0.0, FACTOR_DEVIATION))
+                        .mul(scalings_splitted.to_owned()),
+                ),
             );
             // Decreasing the scaling
             points_splitted[4] = Gaussian3dScene::make_inner_scalings(
@@ -288,11 +279,10 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             let point_count_retained = points_retained[0].dims()[0];
             let point_count_cloned = points_cloned[0].dims()[0];
             let point_count_splitted = points_splitted[0].dims()[0];
-            let point_count_selected =
-                point_count_cloned + point_count_splitted;
+            let point_count_selected = point_count_cloned + point_count_splitted;
             let point_count_new = point_count_retained + point_count_selected;
 
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, not(test)))]
             log::debug!(
                 target: "gausplat::trainer::gaussian_3d::refine",
                 "densification > point_count ({}) -> ({}) = ({}R + {}C + {}S)",
@@ -311,10 +301,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                                 .moment_1
                                 .to_owned()
                                 .select(0, args_to_retain.to_owned()),
-                            Tensor::zeros(
-                                [point_count_selected, dim_2d],
-                                device,
-                            ),
+                            Tensor::zeros([point_count_selected, dim_2d], device),
                         ],
                         0,
                     );
@@ -324,10 +311,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                                 .moment_2
                                 .to_owned()
                                 .select(0, args_to_retain.to_owned()),
-                            Tensor::zeros(
-                                [point_count_selected, dim_2d],
-                                device,
-                            ),
+                            Tensor::zeros([point_count_selected, dim_2d], device),
                         ],
                         0,
                     );
@@ -342,8 +326,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             // Resetting the record
 
-            record.positions_2d_grad_norm_sum =
-                Tensor::zeros([point_count_new], device);
+            record.positions_2d_grad_norm_sum = Tensor::zeros([point_count_new], device);
             record.time = Tensor::ones([point_count_new], device);
         }
 
@@ -353,12 +336,10 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             .range_increasing_colors_sh_degree_max
             .has(self.iteration)
         {
-            let colors_sh_degree_max =
-                &mut self.options_renderer.colors_sh_degree_max;
-            *colors_sh_degree_max =
-                colors_sh_degree_max.add(1).min(SH_DEGREE_MAX);
+            let colors_sh_degree_max = &mut self.options_renderer.colors_sh_degree_max;
+            *colors_sh_degree_max = colors_sh_degree_max.add(1).min(SH_DEGREE_MAX);
 
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, not(test)))]
             log::debug!(
                 target: "gausplat::trainer::gaussian_3d::refine",
                 "increasing_colors_sh_degree_max ({})",

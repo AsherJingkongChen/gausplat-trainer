@@ -12,8 +12,7 @@ pub use config::*;
 pub use gausplat_renderer::scene::gaussian_3d::{
     backend::{self, *},
     render::{
-        Gaussian3dRenderOptions, Gaussian3dRenderOutputAutodiff,
-        Gaussian3dRenderer,
+        Gaussian3dRenderOptions, Gaussian3dRenderOutputAutodiff, Gaussian3dRenderer,
     },
     Gaussian3dScene,
 };
@@ -66,7 +65,7 @@ where
     ) -> Result<&mut Self, Error> {
         self.iteration += 1;
 
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, not(test)))]
         log::debug!(
             target: "gausplat::trainer::gaussian_3d::train",
             "iteration ({})",
@@ -97,7 +96,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         value: Tensor<AB, 3>,
         target: Tensor<AB, 3>,
     ) -> Tensor<AB, 1> {
-        const RANGE_STEP_OPTIM_COARSE_ONLY: u64 = 3;
+        const RANGE_STEP_OPTIM_COARSE_ONLY: u64 = 2;
 
         let mut loss = self
             .metric_optimization_coarse
@@ -120,7 +119,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         scene: &mut Gaussian3dScene<AB>,
         grads: &mut AB::Gradients,
     ) -> &mut Self {
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, not(test)))]
         log::debug!(target: "gausplat::trainer::gaussian_3d::optimize", "start");
 
         // Updating the parameters using the gradients

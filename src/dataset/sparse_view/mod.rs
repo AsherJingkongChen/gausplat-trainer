@@ -29,7 +29,7 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
 
         let images_file = source
             .images_file
-            .inner
+            .into_inner()
             .into_par_iter()
             .map(|(image_file_path, image_file)| {
                 // Checking the image file path
@@ -37,15 +37,13 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
                     return Err(Error::MismatchedImageFilePath(
                         image_file_path,
                         image_file.path,
-                    ))?;
+                    ));
                 }
 
                 let image_file_name = image_file_path
                     .file_name()
                     .filter(|_| image_file_path.is_file())
-                    .ok_or_else(|| {
-                        Error::IoIsADirectory(image_file_path.to_owned())
-                    })?
+                    .ok_or_else(|| Error::IoIsADirectory(image_file_path.to_owned()))?
                     .to_owned();
 
                 Ok((image_file_name, image_file))
@@ -54,12 +52,12 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
 
         let cameras = source
             .images
-            .inner
+            .into_inner()
             .into_par_iter()
             .map(|(id, image)| {
                 // Checking the image id
                 if id != image.image_id {
-                    Err(Error::MismatchedImageId(id, image.image_id))?;
+                    return Err(Error::MismatchedImageId(id, image.image_id));
                 }
 
                 // Specifying the parameters
@@ -77,24 +75,18 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
                 // NOTE: Generally, the file name encoding is UTF-8 in COLMAP model.
                 let image_file_name =
                     OsStr::new(image.file_name.to_str().map_err(|_| {
-                        Error::InvalidUtf8(
-                            image.file_name.to_string_lossy().into_owned(),
-                        )
+                        Error::InvalidUtf8(image.file_name.to_string_lossy().into())
                     })?);
                 let mut image_file = images_file
                     .remove(image_file_name)
                     .map(|p| p.1)
-                    .ok_or_else(|| {
-                        Error::UnknownImageFileName(image_file_name.into())
-                    })?;
+                    .ok_or_else(|| Error::UnknownImageFileName(image_file_name.into()))?;
                 // NOTE: Reading the image file at this point is more memory efficient.
                 let image_encoded = image_file.read()?;
                 let image_file_path = image_file.path;
                 let view_rotation = View::rotation(&image.quaternion);
-                let view_position =
-                    View::position(&view_rotation, &image.translation);
-                let view_transform =
-                    View::transform(&view_rotation, &image.translation);
+                let view_position = View::position(&view_rotation, &image.translation);
+                let view_transform = View::transform(&view_rotation, &image.translation);
 
                 // Image
                 let image = Image {
@@ -126,7 +118,7 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
             })
             .collect::<Result<_, Self::Error>>()?;
 
-        #[cfg(debug_assertions)]
+        #[cfg(all(debug_assertions, not(test)))]
         log::debug!(
             target: "gausplat::trainer::dataset::sparse_view",
             "SparseViewDataset > try_from(ColmapSource)",

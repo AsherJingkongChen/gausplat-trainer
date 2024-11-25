@@ -20,9 +20,7 @@ impl<B: Backend, const C: usize> MeanStructuralDissimilarity<B, C> {
     }
 }
 
-impl<B: Backend, const C: usize> Metric<B>
-    for MeanStructuralDissimilarity<B, C>
-{
+impl<B: Backend, const C: usize> Metric<B> for MeanStructuralDissimilarity<B, C> {
     /// ## Arguments
     ///
     /// * `value` - The input tensor with shape `[N?, C?, H, W]`.
@@ -64,8 +62,7 @@ mod tests {
         use burn::{backend::NdArray, tensor::Distribution};
 
         let device = Default::default();
-        let metric =
-            MeanStructuralDissimilarity::<NdArray<f32>, 3>::init(&device);
+        let metric = MeanStructuralDissimilarity::<NdArray<f32>, 3>::init(&device);
 
         let input_0 = Tensor::<NdArray<f32>, 4>::zeros([1, 3, 36, 36], &device);
         let input_1 = Tensor::zeros([1, 3, 36, 36], &device);

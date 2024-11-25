@@ -98,10 +98,8 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         let mut time = 1;
 
         if let Some(record) = &self.record {
-            moment_1 =
-                moment_1 + record.moment_1.to_owned() * self.config.beta_1;
-            moment_2 =
-                moment_2 + record.moment_2.to_owned() * self.config.beta_2;
+            moment_1 = moment_1 + record.moment_1.to_owned() * self.config.beta_1;
+            moment_2 = moment_2 + record.moment_2.to_owned() * self.config.beta_2;
             time += record.time;
         }
 
@@ -111,12 +109,10 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
             time,
         });
 
-        let moment_1_corrected =
-            moment_1 / (1.0 - self.config.beta_1.powi(time));
-        let moment_2_corrected =
-            moment_2 / (1.0 - self.config.beta_2.powi(time));
-        let grad_corrected = moment_1_corrected
-            / (moment_2_corrected.sqrt() + self.config.epsilon);
+        let moment_1_corrected = moment_1 / (1.0 - self.config.beta_1.powi(time));
+        let moment_2_corrected = moment_2 / (1.0 - self.config.beta_2.powi(time));
+        let grad_corrected =
+            moment_1_corrected / (moment_2_corrected.sqrt() + self.config.epsilon);
 
         let value = value - grad_corrected * learning_rate;
 
@@ -184,8 +180,7 @@ mod tests {
             .with_beta_2(0.999)
             .with_weight_decay(Some(0.5));
         let mut optimizer_for_weight = optimizer_config.init();
-        let mut optimizer_for_bias =
-            optimizer_config.init::<Autodiff<NdArray>, 1>();
+        let mut optimizer_for_bias = optimizer_config.init::<Autodiff<NdArray>, 1>();
 
         let weight = Param::from_data(
             [
@@ -198,10 +193,8 @@ mod tests {
             ],
             &device,
         );
-        let bias = Param::from_data(
-            [-0.3905, 0.0884, -0.0970, 0.1176, 0.1366, 0.0130],
-            &device,
-        );
+        let bias =
+            Param::from_data([-0.3905, 0.0884, -0.0970, 0.1176, 0.1366, 0.0130], &device);
         let x_1 = Tensor::<Autodiff<NdArray>, 2>::from_data(
             [
                 [0.6294, 0.0940, 0.8176, 0.8824, 0.5228, 0.4310],
@@ -299,8 +292,7 @@ mod tests {
             .with_beta_2(0.999)
             .with_weight_decay(Some(0.5));
         let mut optimizer_for_weight = optimizer_config.init();
-        let mut optimizer_for_bias =
-            optimizer_config.init::<Autodiff<NdArray>, 1>();
+        let mut optimizer_for_bias = optimizer_config.init::<Autodiff<NdArray>, 1>();
 
         let mut weight = Param::from_data(
             [
@@ -313,10 +305,8 @@ mod tests {
             ],
             &device,
         );
-        let mut bias = Param::from_data(
-            [-0.3905, 0.0884, -0.0970, 0.1176, 0.1366, 0.0130],
-            &device,
-        );
+        let mut bias =
+            Param::from_data([-0.3905, 0.0884, -0.0970, 0.1176, 0.1366, 0.0130], &device);
         let x = Tensor::<Autodiff<NdArray>, 2>::from_data(
             [
                 [0.8491, 0.2108, 0.8939, 0.4433, 0.5527, 0.2528],
