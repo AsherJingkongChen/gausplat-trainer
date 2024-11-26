@@ -18,21 +18,13 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
     type Error = Error;
 
     fn try_from(source: ColmapSource<S>) -> Result<Self, Self::Error> {
-        let points = source
-            .points
-            .into_iter()
-            .map(|point| Point {
-                color_rgb: point.color_rgb_normalized(),
-                position: point.position,
-            })
-            .collect();
+        let points = source.points.into_iter().map(Into::into).collect();
 
         let images_file = source
             .images_file
             .into_inner()
             .into_par_iter()
             .map(|(image_file_path, image_file)| {
-                // Checking the image file path
                 if image_file_path != image_file.path {
                     return Err(Error::MismatchedImageFilePath(
                         image_file_path,

@@ -11,7 +11,7 @@ use burn::{
 /// using the approaches described in the paper:
 ///
 /// *Wang, J., Bovik, A. C., Sheikh, H. R., & Simoncelli, E. P. (2004). Image quality assessment: from error visibility to structural similarity. IEEE Transactions on Image Processing, 13(4), 600–612.*
-/// https://www.cns.nyu.edu/pub/lcv/wang03-preprint.pdf
+/// <https://www.cns.nyu.edu/pub/lcv/wang03-preprint.pdf>
 ///
 /// ## Details
 ///
