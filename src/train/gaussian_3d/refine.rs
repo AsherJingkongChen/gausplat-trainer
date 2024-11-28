@@ -19,7 +19,7 @@ pub struct RefinerConfig {
     #[config(default = "RangeOptions::new(1000, 4000, 1000)")]
     pub range_increasing_colors_sh_degree_max: RangeOptions,
 
-    #[config(default = "0.5 / 255.0")]
+    #[config(default = "1.4 / 255.0")]
     pub threshold_opacity: f64,
 
     #[config(default = "2e-4")]
