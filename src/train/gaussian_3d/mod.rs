@@ -34,6 +34,7 @@ pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
     pub optimizer_rotations: Adam<AB, 2>,
     pub optimizer_scalings: Adam<AB, 2>,
     pub options_renderer: Gaussian3dRenderOptions,
+    pub range_metric_optimization_fine: RangeOptions,
     pub refiner: Refiner<AB::InnerBackend>,
 }
 
@@ -96,13 +97,11 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         value: Tensor<AB, 3>,
         target: Tensor<AB, 3>,
     ) -> Tensor<AB, 1> {
-        const RANGE_STEP_OPTIM_COARSE_ONLY: u64 = 2;
-
         let mut loss = self
             .metric_optimization_coarse
             .evaluate(value.to_owned(), target.to_owned());
 
-        if self.iteration % RANGE_STEP_OPTIM_COARSE_ONLY != 0 {
+        if self.range_metric_optimization_fine.has(self.iteration) {
             loss = loss
                 .add(
                     self.metric_optimization_fine
@@ -162,7 +161,11 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
         // Updating the learning rates
 
+        self.learning_rate_colors_sh.update();
+        self.learning_rate_opacities.update();
         self.learning_rate_positions.update();
+        self.learning_rate_rotations.update();
+        self.learning_rate_scalings.update();
 
         self
     }

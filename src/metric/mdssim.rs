@@ -6,7 +6,7 @@ pub use super::*;
 ///
 /// ## Details
 ///
-/// It relies on [`MeanStructuralSimilarity`].
+/// It relies on [`MSSIM`](MeanStructuralSimilarity).
 #[derive(Clone, Debug)]
 pub struct MeanStructuralDissimilarity<B: Backend, const C: usize> {
     pub inner: MeanStructuralSimilarity<B, C>,

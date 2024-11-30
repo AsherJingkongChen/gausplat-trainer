@@ -13,7 +13,7 @@ pub struct LearningRate {
 /// A learning rate that can be a constant or exponentially decayed.
 #[derive(Config, Debug, PartialEq)]
 pub struct LearningRateConfig {
-    // The max count to update the learning rate.
+    /// The max count to update the learning rate.
     #[config(default = "0")]
     pub count: u64,
 
@@ -50,6 +50,13 @@ impl LearningRate {
 
 impl LearningRateConfig {
     pub fn init(&self) -> LearningRate {
+        if self.start == 0.0 {
+            return LearningRate {
+                decay: 0.0,
+                end: 0.0,
+                record: LearningRateRecord { current: 0.0 },
+            };
+        }
         let count = if self.count == 0 {
             f64::INFINITY
         } else {
@@ -150,6 +157,23 @@ mod tests {
             .init()
             .decay;
         assert_eq!(decay, 0.9998465061085267);
+    }
+
+    #[test]
+    fn zero() {
+        use super::*;
+
+        let mut lr = LearningRateConfig::new(0.0).init();
+
+        assert_eq!(lr.record.current, 0.0);
+        assert_eq!(lr.decay, 0.0);
+        assert_eq!(lr.end, 0.0);
+
+        lr.update();
+
+        assert_eq!(lr.record.current, 0.0);
+        assert_eq!(lr.decay, 0.0);
+        assert_eq!(lr.end, 0.0);
     }
 
     #[test]
