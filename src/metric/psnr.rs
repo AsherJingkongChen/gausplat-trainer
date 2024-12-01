@@ -3,7 +3,7 @@ pub use super::*;
 /// Computing the peak signal-to-noise ratio (PSNR) between the inputs:
 ///
 /// `10 * log10(1 / MSE) = -10 / log(10) * log(MSE)`
-/// 
+///
 /// ## Details
 ///
 /// It relies on [`MSE`](MeanSquareError).

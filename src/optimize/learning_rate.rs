@@ -11,7 +11,7 @@ pub struct LearningRate {
 }
 
 /// A learning rate that can be a constant or exponentially decayed.
-#[derive(Config, Debug, PartialEq)]
+#[derive(Config, Copy, Debug, PartialEq)]
 pub struct LearningRateConfig {
     /// The max count to update the learning rate.
     #[config(default = "0")]
@@ -63,15 +63,12 @@ impl LearningRateConfig {
             self.count as f64
         };
         let decay = self.end.div(self.start).powf(count.recip());
+        let end = self.end;
         let record = LearningRateRecord {
             current: self.start,
         };
 
-        LearningRate {
-            decay,
-            end: self.end,
-            record,
-        }
+        LearningRate { decay, end, record }
     }
 }
 

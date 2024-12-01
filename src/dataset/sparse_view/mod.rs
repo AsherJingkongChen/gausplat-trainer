@@ -74,7 +74,7 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
                     .map(|p| p.1)
                     .ok_or_else(|| Error::UnknownImageFileName(image_file_name.into()))?;
                 // NOTE: Reading the image file at this point is more memory efficient.
-                let image_encoded = image_file.read()?;
+                let image_encoded = image_file.read_all()?;
                 let image_file_path = image_file.path;
                 let view_rotation = View::rotation(&image.quaternion);
                 let view_position = View::position(&view_rotation, &image.translation);

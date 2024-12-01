@@ -1,7 +1,7 @@
 pub use super::*;
 pub use crate::optimize::{AdamConfig, LearningRateConfig};
 
-#[derive(Config, Debug, PartialEq)]
+#[derive(Config, Copy, Debug, PartialEq)]
 pub struct Gaussian3dTrainerConfig {
     #[config(default = "2.5e-3.into()")]
     pub learning_rate_colors_sh: LearningRateConfig,
@@ -56,10 +56,8 @@ impl Gaussian3dTrainerConfig {
             optimizer_positions: self.optimizer_adam.init(),
             optimizer_rotations: self.optimizer_adam.init(),
             optimizer_scalings: self.optimizer_adam.init(),
-            options_renderer: self.options_renderer.to_owned(),
-            range_metric_optimization_fine: self
-                .range_metric_optimization_fine
-                .to_owned(),
+            options_renderer: self.options_renderer,
+            range_metric_optimization_fine: self.range_metric_optimization_fine,
             refiner: self.refiner.init(),
         }
     }

@@ -11,7 +11,7 @@ pub struct Refiner<B: Backend> {
     pub record: RefinerRecord<B>,
 }
 
-#[derive(Config, Debug, PartialEq)]
+#[derive(Config, Copy, Debug, PartialEq)]
 pub struct RefinerConfig {
     #[config(default = "RangeOptions::new(500, 15000, 100)")]
     pub range_densification: RangeOptions,
@@ -39,9 +39,9 @@ pub struct RefinerState<B: Backend> {
 }
 
 impl RefinerConfig {
-    pub fn init<B: Backend>(&self) -> Refiner<B> {
+    pub fn init<B: Backend>(self) -> Refiner<B> {
         Refiner {
-            config: self.to_owned(),
+            config: self,
             record: None,
         }
     }

@@ -31,7 +31,7 @@ pub struct Adam<AB: AutodiffBackend, const D: usize> {
     pub record: AdamRecord<AB::InnerBackend, D>,
 }
 
-#[derive(Config, Debug, PartialEq)]
+#[derive(Config, Copy, Debug, PartialEq)]
 pub struct AdamConfig {
     /// The coefficient used for computing running average of gradient.
     #[config(default = "0.9")]
@@ -62,9 +62,9 @@ impl AdamConfig {
     /// ## Returns
     ///
     /// An optimizer that can be used to optimize a value.
-    pub fn init<AB: AutodiffBackend, const D: usize>(&self) -> Adam<AB, D> {
+    pub fn init<AB: AutodiffBackend, const D: usize>(self) -> Adam<AB, D> {
         Adam {
-            config: self.to_owned(),
+            config: self,
             record: None,
         }
     }
