@@ -14,7 +14,7 @@ pub use gausplat_renderer::scene::gaussian_3d::{
     render::{
         Gaussian3dRenderOptions, Gaussian3dRenderOutputAutodiff, Gaussian3dRenderer,
     },
-    Gaussian3dScene,
+    AutodiffModule, Gaussian3dScene, SEED,
 };
 pub use refine::*;
 

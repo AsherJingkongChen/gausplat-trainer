@@ -87,7 +87,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         // NOTE: The following factors are difficult to tune.
         const FACTOR_DEVIATION: f64 = 1.0;
         const FACTOR_SCALING_HUGE: f64 = 16.0;
-        const FACTOR_SPLITTING: f64 = 0.7;
+        const FACTOR_SPLITTING: f64 = 0.625;
 
         // Specifying the parameters
 

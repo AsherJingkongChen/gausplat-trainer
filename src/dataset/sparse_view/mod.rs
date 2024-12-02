@@ -14,10 +14,10 @@ pub struct SparseViewDataset {
     pub points: Points,
 }
 
-impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
-    type Error = Error;
-
-    fn try_from(source: ColmapSource<S>) -> Result<Self, Self::Error> {
+impl SparseViewDataset {
+    pub fn init_from_colmap<S: Read + Send + Sync>(
+        source: ColmapSource<S>
+    ) -> Result<Self, Error> {
         let points = source.points.into_iter().map(Into::into).collect();
 
         let images_file = source
@@ -40,7 +40,7 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
 
                 Ok((image_file_name, image_file))
             })
-            .collect::<Result<dashmap::DashMap<_, _>, Self::Error>>()?;
+            .collect::<Result<dashmap::DashMap<_, _>, Error>>()?;
 
         let cameras = source
             .images
@@ -108,15 +108,24 @@ impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
 
                 Ok((id, camera))
             })
-            .collect::<Result<_, Self::Error>>()?;
+            .collect::<Result<_, Error>>()?;
 
         #[cfg(all(debug_assertions, not(test)))]
         log::debug!(
             target: "gausplat::trainer::dataset::sparse_view",
-            "SparseViewDataset > try_from(ColmapSource)",
+            "SparseViewDataset::init_from_colmap",
         );
 
         Ok(Self { cameras, points })
+    }
+}
+
+impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
+    type Error = Error;
+
+    #[inline]
+    fn try_from(source: ColmapSource<S>) -> Result<Self, Self::Error> {
+        Self::init_from_colmap(source)
     }
 }
 
@@ -154,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn default_try_from_colmap() {
+    fn default_init_from_colmap() {
         use super::*;
 
         SparseViewDataset::try_from(ColmapSource::<&[u8]> {
@@ -165,6 +174,6 @@ mod tests {
         })
         .unwrap_err();
 
-        SparseViewDataset::try_from(ColmapSource::<&[u8]>::default()).unwrap();
+        SparseViewDataset::init_from_colmap(ColmapSource::<&[u8]>::default()).unwrap();
     }
 }

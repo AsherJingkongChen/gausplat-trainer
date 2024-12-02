@@ -40,7 +40,7 @@ impl Gaussian3dTrainerConfig {
         &self,
         device: &AB::Device,
     ) -> Gaussian3dTrainer<AB> {
-        AB::seed(Gaussian3dScene::<AB>::SEED);
+        AB::seed(SEED);
 
         Gaussian3dTrainer {
             iteration: 0,

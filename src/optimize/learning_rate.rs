@@ -5,6 +5,7 @@ use std::ops::{Deref, DerefMut, Div, Mul};
 /// A learning rate that can be a constant or exponentially decayed.
 #[derive(Clone, Debug)]
 pub struct LearningRate {
+    /// The decay factor. `1.0` means no decay.
     pub decay: f64,
     pub end: f64,
     pub record: LearningRateRecord,
