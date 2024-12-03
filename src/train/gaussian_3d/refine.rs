@@ -87,7 +87,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         // NOTE: The following factors are difficult to tune.
         const FACTOR_DEVIATION: f64 = 1.0;
         const FACTOR_SCALING_HUGE: f64 = 16.0;
-        const FACTOR_SPLITTING: f64 = 0.625;
+        const FACTOR_SPLITTING: f64 = 0.65;
 
         // Specifying the parameters
 
@@ -207,26 +207,24 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 .to_owned()
                 .map(|p| p.select(0, args_to_retain.to_owned()));
 
-            // Desifying by cloning small points
+            // Densifying by cloning small points
 
-            let points_cloned = points
+            let mut points_cloned = points
                 .to_owned()
                 .map(|p| p.select(0, args_to_clone.to_owned()));
-            // TODO: Deviation on cloning
+
+            // // TODO: Deviation on cloning
             // let scalings_cloned =
             //     Gaussian3dScene::make_scalings(points_cloned[4].to_owned());
 
             // // Moving the position randomly
+
             // points_cloned[2] = Gaussian3dScene::make_inner_positions(
-            //     Gaussian3dScene::make_positions(points_cloned[2].to_owned())
-            //         .add(
-            //             scalings_cloned
-            //                 .random_like(Distribution::Normal(
-            //                     0.0,
-            //                     FACTOR_DEVIATION * 0.5,
-            //                 ))
-            //                 .mul(scalings_cloned.to_owned()),
-            //         ),
+            //     Gaussian3dScene::make_positions(points_cloned[2].to_owned()).add(
+            //         scalings_cloned
+            //             .random_like(Distribution::Normal(0.0, FACTOR_DEVIATION))
+            //             .mul(scalings_cloned.to_owned()),
+            //     ),
             // );
 
             // Densifying by splitting large points

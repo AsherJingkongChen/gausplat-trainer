@@ -22,7 +22,6 @@ impl SparseViewDataset {
 
         let images_file = source
             .images_file
-            .into_inner()
             .into_par_iter()
             .map(|(image_file_path, image_file)| {
                 if image_file_path != image_file.path {
@@ -44,7 +43,6 @@ impl SparseViewDataset {
 
         let cameras = source
             .images
-            .into_inner()
             .into_par_iter()
             .map(|(id, image)| {
                 // Checking the image id
@@ -120,15 +118,6 @@ impl SparseViewDataset {
     }
 }
 
-impl<S: Read + Send + Sync> TryFrom<ColmapSource<S>> for SparseViewDataset {
-    type Error = Error;
-
-    #[inline]
-    fn try_from(source: ColmapSource<S>) -> Result<Self, Self::Error> {
-        Self::init_from_colmap(source)
-    }
-}
-
 impl fmt::Debug for SparseViewDataset {
     fn fmt(
         &self,
@@ -166,7 +155,7 @@ mod tests {
     fn default_init_from_colmap() {
         use super::*;
 
-        SparseViewDataset::try_from(ColmapSource::<&[u8]> {
+        SparseViewDataset::init_from_colmap(ColmapSource::<&[u8]> {
             cameras: [Default::default()].into(),
             images: [Default::default()].into(),
             images_file: [Default::default()].into(),
