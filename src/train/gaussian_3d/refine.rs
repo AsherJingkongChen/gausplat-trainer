@@ -19,13 +19,16 @@ pub struct RefinerConfig {
     #[config(default = "RangeOptions::new(1000, 4000, 1000)")]
     pub range_increasing_colors_sh_degree_max: RangeOptions,
 
+    #[config(default = "RangeOptions::new(3000, 15000, 3000)")]
+    pub range_resetting_opacities: RangeOptions,
+
     #[config(default = "1.4 / 255.0")]
     pub threshold_opacity: f64,
 
     #[config(default = "2e-4")]
     pub threshold_position_2d_grad_norm: f64,
 
-    #[config(default = "4e-2")]
+    #[config(default = "6e-2")]
     pub threshold_scaling: f64,
 }
 
@@ -85,8 +88,9 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         output: Gaussian3dRenderOutputAutodiff<AB>,
     ) -> &mut Self {
         // NOTE: The following factors are difficult to tune.
+        const DEFAULT_OPACITY: f64 = 0.1;
         const FACTOR_DEVIATION: f64 = 1.0;
-        const FACTOR_SCALING_HUGE: f64 = 16.0;
+        const FACTOR_SCALING_HUGE: f64 = 10.0;
         const FACTOR_SPLITTING: f64 = 0.65;
 
         // Specifying the parameters
@@ -140,13 +144,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
                 scene.rotations.val().inner(),
                 scene.scalings.val().inner(),
             ];
-            let is_points_require_grad = [
-                scene.colors_sh.is_require_grad(),
-                scene.opacities.is_require_grad(),
-                scene.positions.is_require_grad(),
-                scene.rotations.is_require_grad(),
-                scene.scalings.is_require_grad(),
-            ];
+            let is_points_require_grad = [true; 5];
             let positions_2d_grad_norm_mean = record
                 .positions_2d_grad_norm_sum
                 .to_owned()
@@ -248,7 +246,6 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             points_splitted[4] = Gaussian3dScene::make_inner_scalings(
                 scalings_splitted.mul_scalar(FACTOR_SPLITTING),
             );
-            let points_splitted = points_splitted;
 
             // Updating the points
 
@@ -288,29 +285,31 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             // Updating the optimizer records
 
             let update_optimizer = |optimizer: &mut Adam<AB, 2>| {
-                if let Some(record) = &mut optimizer.record {
-                    let dim_2d = record.moment_1.dims()[1];
-                    record.moment_1 = Tensor::cat(
-                        vec![
-                            record
-                                .moment_1
-                                .to_owned()
-                                .select(0, args_to_retain.to_owned()),
-                            Tensor::zeros([point_count_selected, dim_2d], device),
-                        ],
-                        0,
-                    );
-                    record.moment_2 = Tensor::cat(
-                        vec![
-                            record
-                                .moment_2
-                                .to_owned()
-                                .select(0, args_to_retain.to_owned()),
-                            Tensor::zeros([point_count_selected, dim_2d], device),
-                        ],
-                        0,
-                    );
-                }
+                let Some(record) = &mut optimizer.record else {
+                    return;
+                };
+                let feature_count = record.moment_1.dims()[1];
+
+                record.moment_1 = Tensor::cat(
+                    vec![
+                        record
+                            .moment_1
+                            .to_owned()
+                            .select(0, args_to_retain.to_owned()),
+                        Tensor::zeros([point_count_selected, feature_count], device),
+                    ],
+                    0,
+                );
+                record.moment_2 = Tensor::cat(
+                    vec![
+                        record
+                            .moment_2
+                            .to_owned()
+                            .select(0, args_to_retain.to_owned()),
+                        Tensor::zeros([point_count_selected, feature_count], device),
+                    ],
+                    0,
+                );
             };
 
             update_optimizer(&mut self.optimizer_colors_sh);
@@ -325,7 +324,22 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             record.time = Tensor::ones([point_count_new], device);
         }
 
-        // Increasing the renderer option `colors_sh_degree_max`
+        // Resetting the opacities
+
+        if config.range_resetting_opacities.has(self.iteration) {
+            scene.set_opacities(
+                Tensor::from_inner(
+                    scene.get_opacities().inner().clamp_max(DEFAULT_OPACITY),
+                )
+                .set_require_grad(true),
+            );
+            self.optimizer_opacities.record = None;
+
+            #[cfg(all(debug_assertions, not(test)))]
+            log::debug!(target: "gausplat::trainer::gaussian_3d::refine", "resetting_opacities");
+        }
+
+        // Increasing the render option `colors_sh_degree_max`
 
         if config
             .range_increasing_colors_sh_degree_max

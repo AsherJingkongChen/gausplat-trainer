@@ -86,7 +86,6 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         value: Tensor<AB, D>,
         mut grad: Tensor<AB::InnerBackend, D>,
     ) -> Tensor<AB, D> {
-        let is_require_grad = value.is_require_grad();
         let value = value.inner();
 
         if let Some(weight_decay) = self.config.weight_decay {
@@ -116,7 +115,7 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
 
         let value = value - grad_corrected * learning_rate;
 
-        Tensor::from_inner(value).set_require_grad(is_require_grad)
+        Tensor::from_inner(value).set_require_grad(true)
     }
 
     pub fn to_device(
@@ -202,7 +201,7 @@ mod tests {
             ],
             &device,
         )
-        .require_grad();
+        .set_require_grad(true);
         let x_2 = Tensor::<Autodiff<NdArray>, 2>::from_data(
             [
                 [0.8491, 0.2108, 0.8939, 0.4433, 0.5527, 0.2528],
@@ -210,7 +209,7 @@ mod tests {
             ],
             &device,
         )
-        .require_grad();
+        .set_require_grad(true);
 
         let mut grads = x_1
             .matmul(weight.val())
@@ -314,7 +313,7 @@ mod tests {
             ],
             &device,
         )
-        .require_grad();
+        .set_require_grad(true);
 
         let mut grads = x
             .to_owned()
