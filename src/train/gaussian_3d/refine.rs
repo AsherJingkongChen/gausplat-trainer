@@ -212,20 +212,17 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
             let mut points_cloned = points
                 .to_owned()
                 .map(|p| p.select(0, args_to_clone.to_owned()));
+            let scalings_cloned =
+                Gaussian3dScene::make_scalings(points_cloned[4].to_owned());
 
-            // // TODO: Deviation on cloning
-            // let scalings_cloned =
-            //     Gaussian3dScene::make_scalings(points_cloned[4].to_owned());
-
-            // // Moving the position randomly
-
-            // points_cloned[2] = Gaussian3dScene::make_inner_positions(
-            //     Gaussian3dScene::make_positions(points_cloned[2].to_owned()).add(
-            //         scalings_cloned
-            //             .random_like(Distribution::Normal(0.0, FACTOR_DEVIATION))
-            //             .mul(scalings_cloned.to_owned()),
-            //     ),
-            // );
+            // Moving the position randomly
+            points_cloned[2] = Gaussian3dScene::make_inner_positions(
+                Gaussian3dScene::make_positions(points_cloned[2].to_owned()).add(
+                    scalings_cloned
+                        .random_like(Distribution::Normal(0.0, FACTOR_DEVIATION))
+                        .mul(scalings_cloned.to_owned()),
+                ),
+            );
 
             // Densifying by splitting large points
 
