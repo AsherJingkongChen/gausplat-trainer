@@ -19,9 +19,6 @@ pub struct RefinerConfig {
     #[config(default = "RangeOptions::new(1000, 4000, 1000)")]
     pub range_increasing_colors_sh_degree_max: RangeOptions,
 
-    #[config(default = "RangeOptions::new(3000, 15000, 3000)")]
-    pub range_resetting_opacities: RangeOptions,
-
     #[config(default = "1.4 / 255.0")]
     pub threshold_opacity: f64,
 
@@ -88,7 +85,6 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         output: Gaussian3dRenderOutputAutodiff<AB>,
     ) -> &mut Self {
         // NOTE: The following factors are difficult to tune.
-        const DEFAULT_OPACITY: f64 = 0.1;
         const FACTOR_DEVIATION: f64 = 1.0;
         const FACTOR_SCALING_HUGE: f64 = 10.0;
         const FACTOR_SPLITTING: f64 = 0.65;
@@ -322,21 +318,6 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 
             record.positions_2d_grad_norm_sum = Tensor::zeros([point_count_new], device);
             record.time = Tensor::ones([point_count_new], device);
-        }
-
-        // Resetting the opacities
-
-        if config.range_resetting_opacities.has(self.iteration) {
-            scene.set_opacities(
-                Tensor::from_inner(
-                    scene.get_opacities().inner().clamp_max(DEFAULT_OPACITY),
-                )
-                .set_require_grad(true),
-            );
-            self.optimizer_opacities.record = None;
-
-            #[cfg(all(debug_assertions, not(test)))]
-            log::debug!(target: "gausplat::trainer::gaussian_3d::refine", "resetting_opacities");
         }
 
         // Increasing the render option `colors_sh_degree_max`
