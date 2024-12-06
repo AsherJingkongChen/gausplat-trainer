@@ -11,3 +11,16 @@ pub struct Camera {
     pub image: Image,
     pub view: View,
 }
+
+/// Dimension operations
+impl Camera {
+    /// Resizing the camera to the maximum side length of `to`.
+    pub fn resize_max(
+        &mut self,
+        to: u32,
+    ) -> Result<&mut Self, Error> {
+        self.image.resize_max(to)?;
+        self.view.resize_max(to);
+        Ok(self)
+    }
+}

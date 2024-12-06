@@ -46,6 +46,16 @@ impl<B: Backend> Default for Psnr<B> {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn default() {
+        use super::*;
+        use burn::backend::NdArray;
+
+        let target = -10.0 / 10.0_f32.ln();
+        let output = Psnr::<NdArray>::default().coefficient.into_scalar();
+        assert_eq!(output, target);
+    }
+
+    #[test]
     fn evaluate() {
         use super::*;
         use burn::backend::NdArray;
