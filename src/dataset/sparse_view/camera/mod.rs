@@ -1,14 +1,21 @@
+//! Sparse view camera module.
+
 pub mod cameras;
 
 pub use cameras::*;
 pub use gausplat_loader::source::image::*;
 pub use gausplat_renderer::render::view::*;
 
+/// A camera for a sparse view.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Camera {
-    /// `camera_id == self.image.image_id && camera_id == self.view.view_id`
+    /// Camera ID.
+    ///
+    /// This is the same as the image ID and view ID.
     pub camera_id: u32,
+    /// Image.
     pub image: Image,
+    /// View.
     pub view: View,
 }
 

@@ -1,3 +1,5 @@
+//! Mean Absolute Error (MAE) metric.
+
 pub use super::*;
 
 /// Computing the mean absolute error (MAE) between the inputs:
@@ -8,8 +10,9 @@ pub use super::*;
 pub struct MeanAbsoluteError;
 
 impl MeanAbsoluteError {
+    /// Initialize the metric.
     #[inline]
-    pub fn init() -> Self {
+    pub const fn init() -> Self {
         Self
     }
 }

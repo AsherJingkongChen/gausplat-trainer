@@ -1,41 +1,46 @@
+//! 3DGS trainer configuration.
+
 pub use super::*;
 pub use crate::optimize::{AdamConfig, LearningRateConfig};
 
+/// 3DGS trainer configuration.
 #[derive(Config, Copy, Debug, PartialEq)]
 pub struct Gaussian3dTrainerConfig {
+    /// Learning rate for colors SH.
     #[config(default = "2.5e-3.into()")]
     pub learning_rate_colors_sh: LearningRateConfig,
-
+    /// Learning rate for opacities.
     #[config(default = "2.5e-2.into()")]
     pub learning_rate_opacities: LearningRateConfig,
-
+    /// Learning rate for positions.
     #[config(
         default = "LearningRateConfig::new(1.6e-4).with_end(1.6e-6).with_count(30000)"
     )]
     pub learning_rate_positions: LearningRateConfig,
-
+    /// Learning rate for rotations.
     #[config(default = "1e-3.into()")]
     pub learning_rate_rotations: LearningRateConfig,
-
+    /// Learning rate for scalings.
     #[config(default = "5e-3.into()")]
     pub learning_rate_scalings: LearningRateConfig,
-
+    /// Adam optimizer configuration.
     #[config(default = "AdamConfig::default().with_epsilon(1e-15)")]
     pub optimizer_adam: AdamConfig,
-
+    /// Renderer options.
     #[config(
         default = "Gaussian3dRenderOptions::default().with_colors_sh_degree_max(0)"
     )]
     pub options_renderer: Gaussian3dRenderOptions,
-
+    /// Range for metric optimization (fine).
     #[config(default = "RangeOptions::default_with_step(2)")]
     pub range_metric_optimization_fine: RangeOptions,
-
+    /// Refiner configuration.
     #[config(default = "Default::default()")]
     pub refiner: RefinerConfig,
 }
 
 impl Gaussian3dTrainerConfig {
+    /// Initialize the trainer.
     pub fn init<AB: AutodiffBackend>(
         &self,
         device: &AB::Device,

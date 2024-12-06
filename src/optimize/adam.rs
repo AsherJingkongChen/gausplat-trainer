@@ -27,10 +27,13 @@ pub use burn::{
 /// ["Adam: A Method for Stochastic Optimization"](https://arxiv.org/pdf/1412.6980.pdf).
 #[derive(Clone, Debug)]
 pub struct Adam<AB: AutodiffBackend, const D: usize> {
+    /// Configuration.
     pub config: AdamConfig,
+    /// Record.
     pub record: AdamRecord<AB::InnerBackend, D>,
 }
 
+/// Configuration for Adam optimizer.
 #[derive(Config, Copy, Debug, PartialEq)]
 pub struct AdamConfig {
     /// The coefficient used for computing running average of gradient.
@@ -49,12 +52,17 @@ pub struct AdamConfig {
     pub weight_decay: Option<f64>,
 }
 
+/// Record for Adam optimizer.
 pub type AdamRecord<B, const D: usize> = Option<AdamState<B, D>>;
 
+/// State for Adam optimizer.
 #[derive(Clone, Debug, Record)]
 pub struct AdamState<B: Backend, const D: usize> {
+    /// Running average of gradient.
     pub moment_1: Tensor<B, D>,
+    /// Running average of squared gradient.
     pub moment_2: Tensor<B, D>,
+    /// Time.
     pub time: i32,
 }
 
@@ -71,6 +79,8 @@ impl AdamConfig {
 }
 
 impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
+    /// Optimize a value using Adam optimizer.
+    ///
     /// ## Arguments
     ///
     /// * `learning_rate` - The number to multiply the gradient by.
@@ -118,6 +128,7 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         Tensor::from_inner(value).set_require_grad(true)
     }
 
+    /// Transfer the optimizer to a device.
     pub fn to_device(
         mut self,
         device: &AB::Device,
@@ -131,6 +142,7 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         self
     }
 
+    /// Load a record into the optimizer.
     #[inline]
     pub fn load_record(
         &mut self,
@@ -140,6 +152,7 @@ impl<AB: AutodiffBackend, const D: usize> Adam<AB, D> {
         self
     }
 
+    /// Unload the record from the optimizer.
     #[inline]
     pub fn into_record(self) -> AdamRecord<AB::InnerBackend, D> {
         self.record

@@ -1,5 +1,8 @@
+//! A library to train scenes for `gausplat`
+
+#![deny(broken_intra_doc_links)]
 #![allow(clippy::excessive_precision)]
-#![allow(missing_docs)]
+#![deny(missing_docs)]
 
 pub mod dataset;
 pub mod error;

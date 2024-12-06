@@ -1,3 +1,5 @@
+//! 3DGS trainer.
+
 pub mod config;
 pub mod refine;
 
@@ -18,40 +20,71 @@ pub use gausplat_renderer::scene::gaussian_3d::{
 };
 pub use refine::*;
 
+/// Trainer for 3DGS.
 #[derive(Clone, Debug)]
 pub struct Gaussian3dTrainer<AB: AutodiffBackend> {
+    /// Current iteration.
     pub iteration: u64,
+    /// Current learning rate for colors SH.
     pub learning_rate_colors_sh: LearningRate,
+    /// Current learning rate for opacities.
     pub learning_rate_opacities: LearningRate,
+    /// Current learning rate for positions.
     pub learning_rate_positions: LearningRate,
+    /// Current learning rate for rotations.
     pub learning_rate_rotations: LearningRate,
+    /// Current learning rate for scalings.
     pub learning_rate_scalings: LearningRate,
+    /// Metric for optimization (coarse).
     pub metric_optimization_coarse: metric::MeanAbsoluteError,
+    /// Metric for optimization (fine).
     pub metric_optimization_fine: metric::MeanStructuralDissimilarity<AB, 3>,
+    /// Current optimizer for colors SH.
     pub optimizer_colors_sh: Adam<AB, 2>,
+    /// Current optimizer for opacities.
     pub optimizer_opacities: Adam<AB, 2>,
+    /// Current optimizer for positions.
     pub optimizer_positions: Adam<AB, 2>,
+    /// Current optimizer for rotations.
     pub optimizer_rotations: Adam<AB, 2>,
+    /// Current optimizer for scalings.
     pub optimizer_scalings: Adam<AB, 2>,
+    /// Current renderer options.
     pub options_renderer: Gaussian3dRenderOptions,
+    /// Current refiner.
     pub range_metric_optimization_fine: RangeOptions,
+    /// Current refiner.
     pub refiner: Refiner<AB::InnerBackend>,
 }
 
+/// Trainer record for 3DGS.
 #[derive(Clone, Debug, Record)]
 pub struct Gaussian3dTrainerRecord<B: Backend> {
+    /// Iteration.
     pub iteration: u64,
+    /// Learning rate for colors SH.
     pub learning_rate_colors_sh: LearningRateRecord,
+    /// Learning rate for opacities.
     pub learning_rate_opacities: LearningRateRecord,
+    /// Learning rate for positions.
     pub learning_rate_positions: LearningRateRecord,
+    /// Learning rate for rotations.
     pub learning_rate_rotations: LearningRateRecord,
+    /// Learning rate for scalings.
     pub learning_rate_scalings: LearningRateRecord,
+    /// Optimizer for colors SH.
     pub optimizer_colors_sh: AdamRecord<B, 2>,
+    /// Optimizer for opacities.
     pub optimizer_opacities: AdamRecord<B, 2>,
+    /// Optimizer for positions.
     pub optimizer_positions: AdamRecord<B, 2>,
+    /// Optimizer for rotations.
     pub optimizer_rotations: AdamRecord<B, 2>,
+    /// Optimizer for scalings.
     pub optimizer_scalings: AdamRecord<B, 2>,
+    /// Renderer options.
     pub options_renderer: Gaussian3dRenderOptions,
+    /// Refiner.
     pub refiner: RefinerRecord<B>,
 }
 
@@ -59,6 +92,7 @@ impl<B: Backend> Gaussian3dTrainer<Autodiff<B>>
 where
     Gaussian3dScene<Autodiff<B>>: Gaussian3dRenderer<B>,
 {
+    /// Train the 3DGS scene.
     pub fn train(
         &mut self,
         scene: &mut Gaussian3dScene<Autodiff<B>>,
@@ -92,6 +126,7 @@ where
 }
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
+    /// Get the loss for colors RGB (Rendered 2D Image).
     pub fn get_loss_colors_rgb_2d(
         &self,
         value: Tensor<AB, 3>,
@@ -113,6 +148,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         loss
     }
 
+    /// Optimize the 3DGS scene.
     pub fn optimize(
         &mut self,
         scene: &mut Gaussian3dScene<AB>,
@@ -172,6 +208,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
 }
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
+    /// Transfer the trainer to the device.
     pub fn to_device(
         mut self,
         device: &AB::Device,
@@ -186,6 +223,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         self
     }
 
+    /// Load the record.
     pub fn load_record(
         &mut self,
         record: Gaussian3dTrainerRecord<AB::InnerBackend>,
@@ -217,6 +255,7 @@ impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
         self
     }
 
+    /// Unload the record.
     pub fn into_record(self) -> Gaussian3dTrainerRecord<AB::InnerBackend> {
         Gaussian3dTrainerRecord {
             iteration: self.iteration,

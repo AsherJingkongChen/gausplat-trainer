@@ -1,3 +1,5 @@
+//! Metrics for evaluation.
+
 pub mod mae;
 pub mod mdssim;
 pub mod mse;
@@ -11,6 +13,7 @@ pub use mse::*;
 pub use mssim::*;
 pub use psnr::*;
 
+/// Functionality for evaluating metrics.
 pub trait Metric<B: Backend> {
     /// Evaluate the value against the target.
     ///

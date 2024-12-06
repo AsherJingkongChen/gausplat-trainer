@@ -1,3 +1,5 @@
+//! 3DGS refinement implementation.
+
 pub use super::*;
 pub use crate::range::RangeOptions;
 pub use burn::tensor::{Distribution, Int};
@@ -5,40 +7,50 @@ pub use burn::tensor::{Distribution, Int};
 use gausplat_renderer::scene::gaussian_3d::SH_DEGREE_MAX;
 use std::ops::Add;
 
+/// Refiner for 3DGS.
 #[derive(Clone, Debug)]
 pub struct Refiner<B: Backend> {
+    /// Configuration.
     pub config: RefinerConfig,
+    /// Record.
     pub record: RefinerRecord<B>,
 }
 
+/// Configuration for the refiner.
 #[derive(Config, Copy, Debug, PartialEq)]
 pub struct RefinerConfig {
+    /// Range for densification.
     #[config(default = "RangeOptions::new(500, 15000, 100)")]
     pub range_densification: RangeOptions,
-
+    /// Range for increasing the colors SH degree max.
     #[config(default = "RangeOptions::new(1000, 4000, 1000)")]
     pub range_increasing_colors_sh_degree_max: RangeOptions,
-
+    /// Threshold for opacity.
     #[config(default = "10.0 / 255.0")]
     pub threshold_opacity: f64,
-
+    /// Threshold for the 2D position gradient norm.
     #[config(default = "2e-4")]
     pub threshold_position_2d_grad_norm: f64,
-
+    /// Threshold for scaling.
     #[config(default = "6e-2")]
     pub threshold_scaling: f64,
 }
 
+/// Record for the refiner.
 pub type RefinerRecord<B> = Option<RefinerState<B>>;
 
+/// State for the refiner.
 #[derive(Clone, Debug, Record)]
 pub struct RefinerState<B: Backend> {
+    /// Sum of the 2D position gradient norm.
     pub positions_2d_grad_norm_sum: Tensor<B, 1>,
     /// `[N] (1 ~ )`
     pub time: Tensor<B, 1>,
 }
 
 impl RefinerConfig {
+    /// Initialize the refiner.
+    #[inline]
     pub fn init<B: Backend>(self) -> Refiner<B> {
         Refiner {
             config: self,
@@ -48,6 +60,7 @@ impl RefinerConfig {
 }
 
 impl<B: Backend> Refiner<B> {
+    /// Transfer the refiner to the device.
     pub fn to_device(
         mut self,
         device: &B::Device,
@@ -62,6 +75,7 @@ impl<B: Backend> Refiner<B> {
         self
     }
 
+    /// Load the record.
     #[inline]
     pub fn load_record(
         &mut self,
@@ -71,6 +85,7 @@ impl<B: Backend> Refiner<B> {
         self
     }
 
+    /// Unload the record.
     #[inline]
     pub fn into_record(self) -> RefinerRecord<B> {
         self.record
@@ -78,6 +93,7 @@ impl<B: Backend> Refiner<B> {
 }
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
+    /// Refine the 3DGS scene.
     pub fn refine(
         &mut self,
         scene: &mut Gaussian3dScene<AB>,

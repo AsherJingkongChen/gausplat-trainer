@@ -1,3 +1,5 @@
+//! Mean Structural Similarity Index (M-SSIM) metric.
+
 pub use super::*;
 
 use crate::error::Error;
@@ -7,7 +9,7 @@ use burn::{
     tensor::Int,
 };
 
-/// Computing the mean of structural similarity index (MSSIM) between the inputs
+/// Computing the mean of structural similarity index (M-SSIM) between the inputs
 /// using the approaches described in the paper:
 ///
 /// *Wang, J., Bovik, A. C., Sheikh, H. R., & Simoncelli, E. P. (2004). Image quality assessment: from error visibility to structural similarity. IEEE Transactions on Image Processing, 13(4), 600–612.*
@@ -19,10 +21,12 @@ use burn::{
 ///   with shape of `[C, 1, 11, 11]` and the standard deviation of `1.5`
 #[derive(Clone, Debug)]
 pub struct MeanStructuralSimilarity<B: Backend, const C: usize> {
+    /// Gaussian filter.
     pub filter: conv::Conv2d<B>,
 }
 
 impl<B: Backend, const C: usize> MeanStructuralSimilarity<B, C> {
+    /// Initialize the metric.
     pub fn init(device: &B::Device) -> Self {
         // G
         const WEIGHT_SIZE: usize = 11;
@@ -79,7 +83,7 @@ impl<B: Backend, const C: usize> Metric<B> for MeanStructuralSimilarity<B, C> {
     ///
     /// ## Returns
     ///
-    /// The mean of structural similarity index (MSSIM) with shape `[1]`.
+    /// The mean of structural similarity index (M-SSIM) with shape `[1]`.
     ///
     /// ## Details
     ///

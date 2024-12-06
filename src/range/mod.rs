@@ -1,13 +1,20 @@
+//! Range options module.
+
 pub use burn::config::Config;
 
+/// The range options.
 #[derive(Config, Copy, Debug, PartialEq)]
 pub struct RangeOptions {
+    /// The start of the range.
     pub start: u64,
+    /// The end of the range.
     pub end: u64,
+    /// The step of the range.
     pub step: u64,
 }
 
 impl RangeOptions {
+    /// Create a new range with the specified step.
     #[inline]
     pub fn default_with_step(step: u64) -> Self {
         Self {
@@ -16,6 +23,7 @@ impl RangeOptions {
         }
     }
 
+    /// Check if the iteration is contained in the range.
     pub fn has(
         &self,
         iteration: u64,

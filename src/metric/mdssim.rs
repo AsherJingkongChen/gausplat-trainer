@@ -1,6 +1,8 @@
+//! Mean of structural dissimilarity index (MD-SSIM) metric.
+
 pub use super::*;
 
-/// Computing the mean of structural dissimilarity index (MDSSIM) between the inputs:
+/// Computing the mean of structural dissimilarity index (MD-SSIM) between the inputs:
 ///
 /// `(1 - MSSIM) / 2`
 ///
@@ -9,10 +11,12 @@ pub use super::*;
 /// It relies on [`MSSIM`](MeanStructuralSimilarity).
 #[derive(Clone, Debug)]
 pub struct MeanStructuralDissimilarity<B: Backend, const C: usize> {
+    /// Inner metric.
     pub inner: MeanStructuralSimilarity<B, C>,
 }
 
 impl<B: Backend, const C: usize> MeanStructuralDissimilarity<B, C> {
+    /// Initialize the metric.
     pub fn init(device: &B::Device) -> Self {
         Self {
             inner: MeanStructuralSimilarity::init(device),
@@ -28,7 +32,7 @@ impl<B: Backend, const C: usize> Metric<B> for MeanStructuralDissimilarity<B, C>
     ///
     /// ## Returns
     ///
-    /// The mean of structural dissimilarity index (MDSSIM) with shape `[1]`.
+    /// The mean of structural dissimilarity index (MD-SSIM) with shape `[1]`.
     ///
     /// ## Details
     ///

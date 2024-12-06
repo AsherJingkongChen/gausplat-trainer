@@ -1,3 +1,5 @@
+//! Peak signal-to-noise ratio (PSNR) metric.
+
 pub use super::*;
 
 /// Computing the peak signal-to-noise ratio (PSNR) between the inputs:
@@ -9,11 +11,14 @@ pub use super::*;
 /// It relies on [`MSE`](MeanSquareError).
 #[derive(Clone, Debug)]
 pub struct Psnr<B: Backend> {
+    /// Coefficient for PSNR.
     pub coefficient: Tensor<B, 1>,
+    /// Inner metric.
     pub mse: MeanSquareError,
 }
 
 impl<B: Backend> Psnr<B> {
+    /// Initialize the metric.
     pub fn init(device: &B::Device) -> Self {
         let ten = Tensor::<B, 1>::from_floats([10.0], device);
         let coefficient = ten.clone().neg().div(ten.log());

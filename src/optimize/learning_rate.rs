@@ -1,3 +1,5 @@
+//! Learning rate module.
+
 pub use burn::{config::Config, record::Record};
 
 use std::ops::{Deref, DerefMut, Div, Mul};
@@ -7,7 +9,9 @@ use std::ops::{Deref, DerefMut, Div, Mul};
 pub struct LearningRate {
     /// The decay factor. `1.0` means no decay.
     pub decay: f64,
+    /// The final value of the learning rate.
     pub end: f64,
+    /// The record of the learning rate.
     pub record: LearningRateRecord,
 }
 
@@ -17,23 +21,28 @@ pub struct LearningRateConfig {
     /// The max count to update the learning rate.
     #[config(default = "0")]
     pub count: u64,
-
+    /// The final value of the learning rate.
     #[config(default = "0.0")]
     pub end: f64,
+    /// The initial value of the learning rate.
     pub start: f64,
 }
 
+/// The record of the learning rate.
 #[derive(Clone, Debug, Record)]
 pub struct LearningRateRecord {
+    /// The current value of the learning rate.
     pub current: f64,
 }
 
 impl LearningRate {
+    /// Update the learning rate.
     pub fn update(&mut self) -> &mut Self {
         self.record.current = self.record.current.mul(self.decay).max(self.end);
         self
     }
 
+    /// Load the record of the learning rate.
     #[inline]
     pub fn load_record(
         &mut self,
@@ -43,6 +52,7 @@ impl LearningRate {
         self
     }
 
+    /// Unload the record of the learning rate.
     #[inline]
     pub fn into_record(self) -> LearningRateRecord {
         self.record
@@ -50,6 +60,7 @@ impl LearningRate {
 }
 
 impl LearningRateConfig {
+    /// Initialize the learning rate.
     pub fn init(&self) -> LearningRate {
         if self.start == 0.0 {
             return LearningRate {

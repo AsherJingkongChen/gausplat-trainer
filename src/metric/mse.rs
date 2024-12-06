@@ -1,3 +1,5 @@
+//! Mean square error (MSE) metric.
+
 pub use super::*;
 
 /// Computing the mean square error (MSE) between the inputs:
@@ -8,6 +10,7 @@ pub use super::*;
 pub struct MeanSquareError;
 
 impl MeanSquareError {
+    /// Initialize the metric.
     #[inline]
     pub fn init() -> Self {
         Self

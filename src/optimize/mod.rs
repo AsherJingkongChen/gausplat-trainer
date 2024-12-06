@@ -1,3 +1,5 @@
+//! Optimization module.
+
 pub mod adam;
 pub mod learning_rate;
 

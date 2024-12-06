@@ -1,3 +1,5 @@
+//! Sparse view dataset module.
+
 pub mod camera;
 
 pub use crate::error::Error;
@@ -8,13 +10,17 @@ pub use gausplat_renderer::scene::point::*;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::{ffi::OsStr, fmt, io::Read, ops::Mul};
 
+/// Dataset for sparse view.
 #[derive(Clone, PartialEq)]
 pub struct SparseViewDataset {
+    /// Cameras.
     pub cameras: Cameras,
+    /// Points.
     pub points: Points,
 }
 
 impl SparseViewDataset {
+    /// Initialize from a COLMAP sparse reconstruction.
     pub fn init_from_colmap<S: Read + Send + Sync>(
         source: ColmapSource<S>
     ) -> Result<Self, Error> {
