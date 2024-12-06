@@ -74,9 +74,9 @@ impl SparseViewDataset {
                 // NOTE: Reading the image file at this point is more memory efficient.
                 let image_encoded = image_file.read_all()?;
                 let image_file_path = image_file.path;
-                let view_rotation = View::rotation(&image.quaternion);
-                let view_position = View::position(&view_rotation, &image.translation);
-                let view_transform = View::transform(&view_rotation, &image.translation);
+                let view_rotation = &image.rotation();
+                let view_position = image.position(view_rotation);
+                let view_transform = View::transform(view_rotation, &image.translation);
 
                 // Image
                 let image = Image {
