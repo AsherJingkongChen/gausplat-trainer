@@ -22,6 +22,7 @@ pub struct Camera {
 /// Dimension operations
 impl Camera {
     /// Resizing the camera to the maximum side length of `to`.
+    #[inline]
     pub fn resize_max(
         &mut self,
         to: u32,
@@ -29,5 +30,11 @@ impl Camera {
         self.image.resize_max(to)?;
         self.view.resize_max(to);
         Ok(self)
+    }
+
+    /// Return the maximum side length of the camera.
+    #[inline]
+    pub fn size_max(&self) -> u32 {
+        self.view.image_height.max(self.view.image_width)
     }
 }
