@@ -26,13 +26,13 @@ pub struct RefinerConfig {
     #[config(default = "RangeOptions::new(1000, 4000, 1000)")]
     pub range_increasing_colors_sh_degree_max: RangeOptions,
     /// Threshold for opacity.
-    #[config(default = "4e-2")]
+    #[config(default = "5e-3")]
     pub threshold_opacity: f64,
     /// Threshold for the 2D position gradient norm.
     #[config(default = "2e-4")]
     pub threshold_position_2d_grad_norm: f64,
     /// Threshold for scaling.
-    #[config(default = "6e-2")]
+    #[config(default = "5e-2")]
     pub threshold_scaling: f64,
 }
 

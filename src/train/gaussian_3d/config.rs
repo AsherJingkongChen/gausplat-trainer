@@ -10,7 +10,7 @@ pub struct Gaussian3dTrainerConfig {
     #[config(default = "2.5e-3.into()")]
     pub learning_rate_colors_sh: LearningRateConfig,
     /// Learning rate for opacities.
-    #[config(default = "2.5e-2.into()")]
+    #[config(default = "5e-2.into()")]
     pub learning_rate_opacities: LearningRateConfig,
     /// Learning rate for positions.
     #[config(
