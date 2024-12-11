@@ -94,6 +94,15 @@ impl<B: Backend> Refiner<B> {
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
     /// Refine the 3DGS scene.
+    /// 
+    /// For each refinement iteration, do the following steps:
+    /// 
+    /// 1. Compute the mean of 2D position gradient norms (projection errors).
+    /// 2. Densify the scene:
+    /// - Clone the small points.
+    /// - Split the large points.
+    /// - Retain the visible points.
+    /// 3. Update the optimizer records.
     pub fn refine(
         &mut self,
         scene: &mut Gaussian3dScene<AB>,
