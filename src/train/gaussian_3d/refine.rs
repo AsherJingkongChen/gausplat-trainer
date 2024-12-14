@@ -29,7 +29,7 @@ pub struct RefinerConfig {
     #[config(default = "5e-3")]
     pub threshold_opacity: f64,
     /// Threshold for the 2D position gradient norm.
-    #[config(default = "2e-4")]
+    #[config(default = "3e-4")]
     pub threshold_position_2d_grad_norm: f64,
     /// Threshold for scaling.
     #[config(default = "5e-2")]
@@ -94,9 +94,9 @@ impl<B: Backend> Refiner<B> {
 
 impl<AB: AutodiffBackend> Gaussian3dTrainer<AB> {
     /// Refine the 3DGS scene.
-    /// 
+    ///
     /// For each refinement iteration, do the following steps:
-    /// 
+    ///
     /// 1. Compute the mean of 2D position gradient norms (projection errors).
     /// 2. Densify the scene:
     /// - Clone the small points.

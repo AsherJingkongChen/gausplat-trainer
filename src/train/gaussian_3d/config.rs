@@ -7,10 +7,10 @@ pub use crate::optimize::{AdamConfig, LearningRateConfig};
 #[derive(Config, Copy, Debug, PartialEq)]
 pub struct Gaussian3dTrainerConfig {
     /// Learning rate for colors SH.
-    #[config(default = "2.5e-3.into()")]
+    #[config(default = "1e-3.into()")]
     pub learning_rate_colors_sh: LearningRateConfig,
     /// Learning rate for opacities.
-    #[config(default = "5e-2.into()")]
+    #[config(default = "3.5e-2.into()")]
     pub learning_rate_opacities: LearningRateConfig,
     /// Learning rate for positions.
     #[config(
