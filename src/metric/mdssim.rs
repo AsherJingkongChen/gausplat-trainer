@@ -36,8 +36,8 @@ impl<B: Backend, const C: usize> Metric<B> for MeanStructuralDissimilarity<B, C>
     ///
     /// ## Details
     ///
-    /// * The argument value should range from `-1.0` to `1.0`
-    /// * The result value ranges from `-1.0` to `1.0`
+    /// * The argument value should range from `0.0` to `1.0`
+    /// * The result value ranges from `0.0` to `2.0`
     fn evaluate<const D: usize>(
         &self,
         value: Tensor<B, D>,
